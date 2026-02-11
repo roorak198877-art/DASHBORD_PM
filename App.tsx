@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from 'react';
+
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   Cell, AreaChart, Area
@@ -8,10 +9,11 @@ import {
   CheckSquare, Square, RefreshCw, Settings, Wrench, QrCode, Share2, 
   Activity, Lock, PrinterIcon, ShieldAlert, Loader2, ChevronRight, 
   Download, Camera, Image as ImageIcon, Upload, Database, Globe, Eye, EyeOff,
-  AlertCircle, Calendar, Info
+  AlertCircle, Calendar, Info, ArrowLeft, ShieldCheck, MapPin, Tag, Cpu, Hash, Key,
+  Menu
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { INITIAL_PM_DATA, DEPARTMENTS, DEVICE_STATUS_OPTIONS, COMPUTER_STANDARD_ACTIVITIES, PRINTER_STANDARD_ACTIVITIES } from './constants';
+import { INITIAL_PM_DATA, DEPARTMENTS, COMPUTER_STANDARD_ACTIVITIES, PRINTER_STANDARD_ACTIVITIES } from './constants';
 import { PMItem } from './types';
 import * as XLSX from 'xlsx';
 
@@ -20,7 +22,6 @@ const COMPANY_NAME = 'TCITRENDGROUP';
 const LOGO_TEXT = 'T.T.g';
 const DEFAULT_GAS_URL = ''; 
 const SECURITY_PIN = '1234';
-const REDIRECT_URL = 'https://www.google.com';
 
 const CHART_COLORS = ['#065f46', '#0f172a', '#059669', '#1e293b', '#10b981', '#334155', '#34d399', '#064e3b'];
 const bouncySpring = { type: "spring" as const, stiffness: 400, damping: 25 };
@@ -32,18 +33,63 @@ const modalAnimate = {
   exit: { opacity: 0, scale: 0.9, y: 20, transition: { duration: 0.2 } }
 };
 
+// --- ANIMATION COMPONENTS ---
+const SpinningGears = () => (
+  <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 opacity-10">
+    <motion.div 
+      animate={{ 
+        rotate: 360,
+        y: [0, -10, 0] 
+      }} 
+      transition={{ 
+        rotate: { repeat: Infinity, duration: 20, ease: "linear" },
+        y: { repeat: Infinity, duration: 4, ease: "easeInOut" }
+      }}
+      className="absolute -top-10 -right-10 text-emerald-900"
+    >
+      <Settings size={200} strokeWidth={1} />
+    </motion.div>
+    
+    <motion.div 
+      animate={{ 
+        rotate: -360,
+        y: [0, 15, 0] 
+      }} 
+      transition={{ 
+        rotate: { repeat: Infinity, duration: 15, ease: "linear" },
+        y: { repeat: Infinity, duration: 5, ease: "easeInOut" }
+      }}
+      className="absolute top-20 -right-20 text-emerald-700"
+    >
+      <Settings size={150} strokeWidth={1} />
+    </motion.div>
+    
+    <motion.div 
+      animate={{ 
+        rotate: 360,
+        x: [0, 10, 0]
+      }} 
+      transition={{ 
+        rotate: { repeat: Infinity, duration: 25, ease: "linear" },
+        x: { repeat: Infinity, duration: 6, ease: "easeInOut" }
+      }}
+      className="absolute top-48 right-10 text-emerald-600"
+    >
+      <Settings size={100} strokeWidth={1} />
+    </motion.div>
+  </div>
+);
+
+// กฎเหล็ก: จัดการ Formatting วันที่ (ตัดค่าส่วนเกิน T00:00...Z และแสดงผล DD-MM-YYYY)
 const formatDateDisplay = (dateStr?: any) => {
   if (!dateStr || dateStr === 'undefined' || dateStr === '') return '-';
   try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return String(dateStr);
-    
-    // กฎเหล็ก: จัดรูปแบบวันที่เป็น d-m-yyyy (เช่น 11-2-2026) และตัดเวลาออกอย่างสมบูรณ์
-    const day = d.toLocaleDateString('en-GB', { day: 'numeric', timeZone: 'Asia/Bangkok' });
-    const month = d.toLocaleDateString('en-GB', { month: 'numeric', timeZone: 'Asia/Bangkok' });
-    const year = d.toLocaleDateString('en-GB', { year: 'numeric', timeZone: 'Asia/Bangkok' });
-    
-    return `${day}-${month}-${year}`;
+    const cleanDate = String(dateStr).split('T')[0];
+    const parts = cleanDate.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    return cleanDate;
   } catch (e) { return String(dateStr); }
 };
 
@@ -68,31 +114,37 @@ const calculateNextPM = (currentDate: string, device: 'Computer' | 'Printer'): s
 const BrandIdentity: React.FC<{ size?: 'sm' | 'lg' }> = ({ size = 'lg' }) => {
   const isLg = size === 'lg';
   return (
-    <motion.div className="flex items-center gap-3 relative z-10" animate={{ y: [0, -10, 0] }} transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}>
-      <div className="absolute inset-0 pointer-events-none flex items-center justify-center -translate-x-8">
-        <motion.div animate={{ rotate: 360 }} transition={{ duration: 25, repeat: Infinity, ease: "linear" }} className="absolute text-white/10"><Settings size={isLg ? 80 : 50} strokeWidth={1} /></motion.div>
-        <motion.div animate={{ rotate: -360 }} transition={{ duration: 18, repeat: Infinity, ease: "linear" }} className="absolute text-white/15 translate-x-4 -translate-y-3"><Settings size={isLg ? 60 : 40} strokeWidth={1} /></motion.div>
+    <div className="flex items-center gap-3 relative z-10">
+      <div className="flex items-center justify-center rounded-lg bg-emerald-600 shadow-sm border border-emerald-500" style={{ width: isLg ? 35 : 30, height: isLg ? 35 : 30 }}>
+        <span className="font-black text-[12px] text-white tracking-tighter">{LOGO_TEXT}</span>
       </div>
-      <div className="relative z-10 flex items-center gap-3">
-        <div className="flex items-center justify-center rounded-lg bg-emerald-600 shadow-sm border border-emerald-500" style={{ width: isLg ? 35 : 30, height: isLg ? 35 : 30 }}><span className="font-black text-[12px] text-white tracking-tighter">{LOGO_TEXT}</span></div>
-        <div className="flex flex-col">
-          <h1 className={`${isLg ? 'text-lg' : 'text-sm'} font-black text-white tracking-tighter leading-none uppercase`}>{COMPANY_NAME}</h1>
-          {isLg && <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mt-1">PM System Cloud</p>}
-        </div>
+      <div className="flex flex-col text-left">
+        <h1 className={`${isLg ? 'text-lg' : 'text-sm'} font-black text-white tracking-tighter leading-none uppercase`}>{COMPANY_NAME}</h1>
+        {isLg && <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mt-1">PM System Cloud</p>}
       </div>
-    </motion.div>
+    </div>
   );
 };
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'table'>('dashboard');
   const [pmModule, setPmModule] = useState<'computer' | 'printer'>('computer');
-  const [publicViewId, setPublicViewId] = useState<string | null>(null);
-  const [isAdminSession, setIsAdminSession] = useState(false); 
+  
+  const [publicViewId, setPublicViewId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('view')?.trim() || null;
+  });
+
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   const [userRole, setUserRole] = useState<'admin' | 'general'>('general');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
+  
   const [items, setItems] = useState<PMItem[]>(() => {
     try {
       const saved = localStorage.getItem('pm_dashboard_data');
@@ -106,15 +158,30 @@ const App: React.FC = () => {
   const [qrItem, setQrItem] = useState<PMItem | null>(null);
   const [editingItem, setEditingItem] = useState<PMItem | null>(null);
   const [sheetUrl, setSheetUrl] = useState(localStorage.getItem('pm_sheet_url') || DEFAULT_GAS_URL);
-  const [isSyncing, setIsSyncing] = useState(false);
+  
+  const [isSyncing, setIsSyncing] = useState(!!(localStorage.getItem('pm_sheet_url') || DEFAULT_GAS_URL));
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [isCloudConnected, setIsCloudConnected] = useState<boolean | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const viewId = params.get('view');
     if (viewId) setPublicViewId(viewId.trim());
   }, []);
+
+  useEffect(() => {
+    if (publicViewId) {
+      window.history.pushState(null, '', window.location.href);
+      const handlePopState = () => {
+        window.history.pushState(null, '', window.location.href);
+      };
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
+    }
+  }, [publicViewId]);
 
   useEffect(() => { localStorage.setItem('pm_dashboard_data', JSON.stringify(items)); }, [items]);
   useEffect(() => { localStorage.setItem('pm_sheet_url', sheetUrl); }, [sheetUrl]);
@@ -133,7 +200,7 @@ const App: React.FC = () => {
     filteredItems.forEach(item => { if(item.department) deptMap[item.department] = (deptMap[item.department] || 0) + 1; });
     const deptStats = Object.entries(deptMap).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
     const trendMap: Record<string, number> = {};
-    filteredItems.forEach(item => { if(item.date) { const d = toISODate(item.date); trendMap[d] = (trendMap[d] || 0) + 1; } });
+    filteredItems.forEach(item => { if(item.date) { const d = toISODate(item.date); if(d) trendMap[d] = (trendMap[d] || 0) + 1; } });
     const dailyTrend = Object.entries(trendMap).map(([date, count]) => ({ date: formatDateDisplay(date), count })).sort((a, b) => a.date.localeCompare(b.date));
     return { total, completionRate, deptStats, dailyTrend };
   }, [filteredItems]);
@@ -146,25 +213,20 @@ const App: React.FC = () => {
         item.id, item.date, item.nextPmDate || '', item.department, item.device,
         item.personnel, item.status, item.activity, item.computerName, item.computerUser,
         item.password || '', item.serverPassword || '', item.antivirus || '', item.imageUrl || '', item.technician || '',
-        item.startDate || '', item.warrantyExpiry || '', item.spareField || ''
+        item.startDate || '', item.warrantyExpiry || '', item.spareField || '',
+        item.assetName || '', item.model || '', item.serialNumber || '', item.location || ''
       ];
-
-      await fetch(sheetUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain' },
-        body: JSON.stringify({ values: payload }),
-      });
+      await fetch(sheetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ values: payload }) });
       setSyncMessage("บันทึกสำเร็จ (Cloud Sync)");
       setIsCloudConnected(true);
     } catch (err) { 
-      setSyncMessage("ล้มเหลว! ตรวจสอบ URL หรืออินเทอร์เน็ต"); 
+      setSyncMessage("เชื่อมต่อ Cloud ล้มเหลว"); 
       setIsCloudConnected(false);
     } finally { setTimeout(() => setSyncMessage(null), 3000); }
   };
 
   const fetchFromSheet = async (silent = false) => {
-    if (!sheetUrl) return; 
+    if (!sheetUrl) { setIsSyncing(false); return; } 
     setIsSyncing(true);
     try {
       const res = await fetch(`${sheetUrl}?_t=${Date.now()}`);
@@ -174,30 +236,37 @@ const App: React.FC = () => {
           const mapped: PMItem[] = data.map(row => {
             if (!row || !row[0]) return null;
             return {
-              id: String(row[0]).trim(), date: row[1], nextPmDate: row[2], department: row[3],
-              device: row[4], personnel: row[5], status: row[6], activity: row[7],
-              computerName: row[8], computerUser: row[9], password: row[10],
-              serverPassword: row[11], antivirus: row[12], imageUrl: row[13], technician: row[14],
-              startDate: row[15], warrantyExpiry: row[16], spareField: row[17],
+              id: String(row[0]).trim(), 
+              date: row[1], // Column B
+              nextPmDate: row[2], // Column C
+              department: row[3], // Column D
+              device: row[4], // Column E
+              personnel: row[5], // Column F
+              status: row[6], // Column G
+              activity: row[7], // Column H
+              computerName: row[8], // Column I
+              computerUser: row[9], // Column J (Login)
+              password: row[10], // Column K
+              serverPassword: row[11], // Column L
+              antivirus: row[12], // Column M
+              technician: row[14], // Column O
+              imageUrl: row[15], // Column P
+              startDate: row[16] || '',
+              warrantyExpiry: row[17] || '',
+              spareField: row[18] || '',
+              assetName: row[19] || '',
+              model: row[20] || '',
+              serialNumber: row[21] || '',
+              location: row[22] || '',
               deviceStatus: row[7]?.includes('Broken') ? 'Broken' : 'Ready'
             };
           }).filter(i => i !== null) as PMItem[];
-          
           setItems(mapped); 
           setIsCloudConnected(true);
-          if (!silent) setSyncMessage('เชื่อมต่อ Cloud สำเร็จ');
-        } else {
-          setIsCloudConnected(false);
-          if (!silent) setSyncMessage('รูปแบบข้อมูล Cloud ไม่ถูกต้อง');
-        }
-      } else { 
-        setIsCloudConnected(false);
-        if (!silent) setSyncMessage('เชื่อมต่อ Cloud ล้มเหลว (404/500)');
-      }
-    } catch (err) { 
-      setIsCloudConnected(false);
-      if (!silent) setSyncMessage('ไม่สามารถเข้าถึง Cloud ได้');
-    } finally { 
+          if (!silent) setSyncMessage('ซิงค์ข้อมูลสำเร็จ');
+        } else { setIsCloudConnected(false); }
+      } else { setIsCloudConnected(false); }
+    } catch (err) { setIsCloudConnected(false); } finally { 
       setIsSyncing(false); 
       setTimeout(() => setSyncMessage(null), 2000); 
     }
@@ -206,18 +275,15 @@ const App: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingItem) return;
-    if (!editingItem.id) return alert('กรุณาระบุ Asset ID (A)');
-    
+    if (!editingItem.id) return alert('กรุณาระบุ Asset ID');
     let finalItem = { ...editingItem, id: String(editingItem.id).trim() };
     if (finalItem.status === 'Completed') {
       finalItem.nextPmDate = calculateNextPM(finalItem.date, finalItem.device);
-    } else {
-      finalItem.nextPmDate = ''; 
-    }
+    } else { finalItem.nextPmDate = ''; }
     
     setItems(prev => {
-      const exists = prev.find(i => String(i.id).trim() === finalItem.id);
-      return exists ? prev.map(i => String(i.id).trim() === finalItem.id ? finalItem : i) : [...prev, finalItem];
+      const exists = prev.find(i => String(i.id).trim().toLowerCase() === finalItem.id.toLowerCase());
+      return exists ? prev.map(i => String(i.id).trim().toLowerCase() === finalItem.id.toLowerCase() ? finalItem : i) : [...prev, finalItem];
     });
     
     setIsModalOpen(false); 
@@ -228,93 +294,150 @@ const App: React.FC = () => {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (loginForm.username === 'admin' && loginForm.password === 'tci@1234') {
-      setUserRole('admin'); setIsLoginModalOpen(false); setLoginForm({ username: '', password: '' });
-      setSyncMessage("สิทธิ์ Admin เปิดใช้งาน"); setTimeout(() => setSyncMessage(null), 3000);
-    } else { setLoginError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'); }
+      setUserRole('admin'); 
+      setIsLoginModalOpen(false); 
+      setLoginForm({ username: '', password: '' });
+    } else { setLoginError('รหัสผ่านไม่ถูกต้อง'); }
   };
 
-  const handleRequestUnlock = () => {
-    const pin = window.prompt("กรุณาใส่รหัส Admin PIN (1234):");
-    if (pin === SECURITY_PIN) { 
-      setIsAdminSession(true); 
-      setSyncMessage("ปลดล็อกสำเร็จ"); 
-      setTimeout(() => setSyncMessage(null), 3000); 
+  const handlePinSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pinInput === SECURITY_PIN) {
+      setIsUnlocked(true);
+      setPinError(false);
+      setPinInput('');
+    } else {
+      setPinError(true);
+      setPinInput('');
     }
-    else if (pin !== null) alert("PIN ไม่ถูกต้อง");
-  };
-
-  const exportToExcel = () => {
-    const exportData = filteredItems.map(item => ({
-      'ID': item.id, 'Date': formatDateDisplay(item.date), 'Next PM': formatDateDisplay(item.nextPmDate),
-      'Dept': item.department, 'Device': item.device, 'User': item.personnel, 'Status': item.status,
-      'Activity': item.activity, 'Host': item.computerName, 'Login': item.computerUser, 'Tech': item.technician
-    }));
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "PM_Report");
-    XLSX.writeFile(wb, `${COMPANY_NAME}_PM_Report.xlsx`);
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && editingItem) {
       const reader = new FileReader();
-      reader.onloadend = () => setEditingItem({ ...editingItem, imageUrl: reader.result as string });
+      reader.onloadend = () => {
+        setEditingItem({ ...editingItem, imageUrl: reader.result as string });
+      };
       reader.readAsDataURL(file);
     }
   };
 
-  const handlePublicClose = () => { window.location.href = REDIRECT_URL; };
+  const appBaseUrl = window.location.href.split('?')[0];
 
+  // --- ASSET TAG VIEW (PUBLIC SCAN VIEW) ---
   if (publicViewId) {
-    const item = items.find(i => i.id?.toString().trim() === publicViewId.trim());
-    
+    const item = items.find(i => i && i.id && String(i.id).trim().toLowerCase() === String(publicViewId).trim().toLowerCase());
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 select-none">
-        <button onClick={handlePublicClose} className="fixed top-6 left-6 z-[100] p-4 bg-white rounded-2xl shadow-xl text-slate-600 border border-slate-200"><X size={24} /></button>
-        
+      <div className="min-h-screen bg-[#f1f5f9] flex items-center justify-center p-4 relative overflow-hidden">
+        <SpinningGears />
         {item ? (
-          <motion.div initial="hidden" animate="visible" variants={modalAnimate} className="w-full max-w-md bg-white rounded-[3rem] shadow-3xl border border-slate-200 overflow-hidden">
+          <motion.div initial="hidden" animate="visible" variants={modalAnimate} className="w-full max-w-md bg-white rounded-[3rem] shadow-3xl border border-slate-200 overflow-hidden relative z-10 text-left">
             <div className={`p-10 text-white ${item.status === 'Completed' ? 'bg-gradient-to-br from-emerald-600 to-emerald-900' : 'bg-amber-500'}`}>
-              <div className="flex items-center gap-4 mb-4"><BrandIdentity size="sm" /><h2 className="text-2xl font-black uppercase ml-2">Tag</h2></div>
-              <p className="text-[11px] opacity-70 font-bold uppercase tracking-widest">{COMPANY_NAME} • Secure Link</p>
-            </div>
-            <div className="p-8 space-y-6">
-              {item.imageUrl && <div className="w-full h-56 rounded-[2.5rem] overflow-hidden border-4 border-slate-50 shadow-xl"><img src={item.imageUrl} alt="Asset" className="w-full h-full object-cover" /></div>}
-              <div className="grid grid-cols-2 gap-4">
-                <DataField label="ID (A)" value={item.id} mono />
-                <DataField label="Hostname (I)" value={item.computerName || 'N/A'} />
-                <DataField label="Last PM (B)" value={formatDateDisplay(item.date)} small />
-                <DataField label="Next PM (C)" value={formatDateDisplay(item.nextPmDate)} small />
-                <DataField label="Department (D)" value={item.department} />
-                <DataField label="User (F)" value={item.personnel} />
-                <DataField label="Technician (O)" value={item.technician || '-'} />
+              <div className="flex items-center gap-4 mb-4">
+                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md border border-white/30">
+                  <ShieldCheck size={28} className="text-white" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-xl font-black uppercase tracking-tight">Verified Asset</h2>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">{COMPANY_NAME}</p>
+                </div>
               </div>
-              <div className="space-y-3 p-5 bg-slate-50 rounded-[2rem] border border-slate-100">
-                <p className="text-[9px] font-black text-slate-400 uppercase text-center">Verified PM Checklist (H)</p>
-                <div className="space-y-1">
-                  {item.activity && String(item.activity).split(' | ').map((act, i) => (
-                    <div key={i} className="flex items-center gap-2 text-[10px] font-bold text-slate-600 py-1 border-b border-slate-200/50 last:border-none"><CheckCircle size={12} className="text-emerald-500" /><span>{act}</span></div>
+            </div>
+            
+            <div className="p-8 space-y-6 overflow-y-auto max-h-[70vh] no-scrollbar">
+              {item.imageUrl && (
+                <div className="relative group">
+                  <img src={item.imageUrl} className="w-full h-52 object-cover rounded-3xl border-4 border-slate-50 shadow-lg" alt="proof" />
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 gap-4 text-left">
+                <DataField label="Asset ID" value={item.id} mono />
+                <DataField label="Department" value={item.department} />
+                <DataField label="Assigned User" value={item.personnel || '-'} />
+                <DataField label="Hostname" value={item.computerName || '-'} />
+                
+                <DataField label="Last PM (B)" value={formatDateDisplay(item.date)} />
+                <DataField label="Next PM (C)" value={formatDateDisplay(item.nextPmDate)} />
+                
+                <DataField label="Status" value={item.status} />
+                <DataField label="Technician (O)" value={item.technician || '-'} />
+                
+                <DataField 
+                  label="Login (J)" 
+                  value={isUnlocked ? (item.computerUser || '-') : '********'} 
+                  mono={isUnlocked} 
+                  icon={isUnlocked ? <Eye size={10}/> : <EyeOff size={10}/>}
+                />
+                <DataField 
+                  label="Password (K)" 
+                  value={isUnlocked ? (item.password || '-') : '********'} 
+                  mono={isUnlocked}
+                  icon={isUnlocked ? <Eye size={10}/> : <EyeOff size={10}/>}
+                />
+                <DataField 
+                  label="Server Pass (L)" 
+                  value={isUnlocked ? (item.serverPassword || '-') : '********'} 
+                  mono={isUnlocked}
+                  icon={isUnlocked ? <Eye size={10}/> : <EyeOff size={10}/>}
+                />
+                <DataField 
+                  label="Antivirus (M)" 
+                  value={isUnlocked ? (item.antivirus || '-') : '********'} 
+                  mono={isUnlocked}
+                  icon={isUnlocked ? <Eye size={10}/> : <EyeOff size={10}/>}
+                />
+              </div>
+
+              {!isUnlocked && (
+                <form onSubmit={handlePinSubmit} className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex flex-col gap-4">
+                  <div className="flex items-center gap-2">
+                    <Lock size={14} className="text-emerald-600" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Enter PIN to Reveal Sensitive Data</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <input 
+                      type="password" 
+                      maxLength={4}
+                      value={pinInput}
+                      onChange={(e) => setPinInput(e.target.value)}
+                      placeholder="****"
+                      className={`flex-1 px-4 py-3 rounded-xl border-2 text-center font-black tracking-[1em] outline-none transition-all ${pinError ? 'border-rose-500 bg-rose-50' : 'border-slate-200 focus:border-emerald-600'}`}
+                    />
+                    <button type="submit" className="px-6 py-3 bg-emerald-600 text-white rounded-xl font-black text-[10px] uppercase shadow-lg">Unlock</button>
+                  </div>
+                  {pinError && <p className="text-[9px] font-bold text-rose-500 text-center uppercase">Incorrect Security PIN</p>}
+                </form>
+              )}
+
+              {item.location && (
+                <div className="p-5 bg-emerald-50 rounded-[1.5rem] border border-emerald-100 flex items-center gap-3">
+                  <MapPin size={18} className="text-emerald-600" />
+                  <div>
+                    <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Fixed Location</p>
+                    <p className="text-xs font-bold text-emerald-900">{item.location}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 text-left">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Maintenance Checklist (H)</p>
+                <div className="space-y-2">
+                  {String(item.activity || '').split(' | ').filter(x => x).map((act, i) => (
+                    <p key={i} className="text-[10px] font-bold text-slate-700 flex items-start gap-2 leading-relaxed">
+                      <CheckCircle size={10} className="text-emerald-500 mt-0.5" /> {act}
+                    </p>
                   ))}
                 </div>
               </div>
             </div>
           </motion.div>
-        ) : isSyncing ? (
-          <div className="text-center">
-            <Loader2 size={48} className="animate-spin text-emerald-600 mx-auto mb-6" />
-            <p className="text-slate-500 font-black uppercase tracking-widest text-[11px]">กำลังค้นหาข้อมูล Asset ใน Cloud Database...</p>
-          </div>
         ) : (
-          <div className="text-center p-10 bg-white rounded-[3rem] shadow-2xl border border-slate-100 max-w-sm">
-            <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-rose-100">
-              <AlertCircle size={40} />
-            </div>
-            <h2 className="text-2xl font-black text-slate-800 uppercase mb-2">ไม่พบข้อมูล Asset</h2>
-            <p className="text-slate-400 text-[11px] font-bold uppercase leading-relaxed mb-6">Asset ID: {publicViewId}<br/>กรุณาตรวจสอบว่าข้อมูลได้ถูกซิงค์ลง Cloud แล้ว หรือ Asset ID ถูกต้อง</p>
-            <button onClick={() => window.location.reload()} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2">
-              <RefreshCw size={16} /> รีเฟรชเพื่อลองใหม่
-            </button>
+          <div className="text-center p-12 bg-white rounded-[3rem] shadow-2xl max-w-sm relative z-10">
+            <AlertCircle size={48} className="text-rose-500 mx-auto mb-6" />
+            <h2 className="text-xl font-black text-slate-800 mb-2 uppercase">Invalid Asset ID</h2>
+            <p className="text-slate-400 text-sm">ขออภัย ไม่พบข้อมูลรหัสทรัพย์สินนี้ในระบบ</p>
           </div>
         )}
       </div>
@@ -322,261 +445,372 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 relative font-sans overflow-x-hidden">
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#f8fafc] relative font-sans overflow-x-hidden text-left">
+      <SpinningGears />
+      
       <AnimatePresence>{syncMessage && (
-        <motion.div initial={{ opacity: 0, y: -50, x: '-50%' }} animate={{ opacity: 1, y: 20, x: '-50%' }} exit={{ opacity: 0, y: -50, x: '-50%' }} className="fixed top-0 left-1/2 z-[200] px-8 py-4 bg-emerald-600 text-white rounded-2xl shadow-3xl font-black text-[11px] uppercase border border-emerald-500 text-center">{syncMessage}</motion.div>
+        <motion.div initial={{ opacity: 0, y: -50, x: '-50%' }} animate={{ opacity: 1, y: 20, x: '-50%' }} exit={{ opacity: 0, y: -50, x: '-50%' }} className="fixed top-0 left-1/2 z-[300] px-8 py-4 bg-emerald-600 text-white rounded-2xl shadow-3xl font-black text-[11px] uppercase border border-emerald-500 text-center">{syncMessage}</motion.div>
       )}</AnimatePresence>
 
-      <div className="md:hidden sticky top-0 z-50 bg-slate-900 px-6 py-4 flex items-center justify-between shadow-2xl border-b border-slate-800 no-print">
-        <div className="cursor-pointer" onClick={() => { setActiveTab('dashboard'); setPmModule('computer'); }}><BrandIdentity size="sm" /></div>
-        <div className="flex items-center gap-3">
-          <div className={`w-3 h-3 rounded-full ${isCloudConnected ? 'bg-emerald-50 shadow-[0_0_8px_#10b981]' : isCloudConnected === false ? 'bg-red-500' : 'bg-slate-600 animate-pulse'}`}></div>
-          <button onClick={() => setIsLoginModalOpen(true)} className="p-2 bg-emerald-600 text-white rounded-xl shadow-lg"><Lock size={18} /></button>
+      <div className="md:hidden sticky top-0 z-[100] bg-slate-900 px-6 py-4 flex items-center justify-between shadow-xl no-print">
+        <BrandIdentity size="sm" />
+        <div className="flex gap-2">
+           <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 bg-slate-800 text-white rounded-xl shadow-lg hover:bg-slate-700 transition-colors">
+              <Menu size={20} />
+           </button>
+           <button onClick={() => setIsLoginModalOpen(true)} className="p-2 bg-emerald-600 text-white rounded-xl shadow-lg">
+              <Lock size={18} />
+           </button>
         </div>
       </div>
 
-      <aside className="hidden md:flex w-72 bg-slate-900 border-r border-slate-800 p-8 flex-col gap-10 sticky top-0 h-screen z-10 no-print shadow-2xl">
-        <div className="cursor-pointer" onClick={() => { setActiveTab('dashboard'); setPmModule('computer'); }}><BrandIdentity size="lg" /></div>
-        <nav className="space-y-3 flex-1">
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div 
+            initial={{ x: '-100%' }} 
+            animate={{ x: 0 }} 
+            exit={{ x: '-100%' }} 
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="fixed inset-0 z-[150] bg-slate-900 p-8 flex flex-col gap-10 no-print md:hidden"
+          >
+            <div className="flex justify-between items-center">
+              <BrandIdentity size="lg" />
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 text-slate-400 hover:text-white transition-colors">
+                <X size={28} />
+              </button>
+            </div>
+            <nav className="space-y-4 flex-1 overflow-y-auto pt-4">
+              <NavBtn icon={Monitor} label="Computer" active={pmModule === 'computer' && activeTab === 'dashboard'} onClick={() => { setPmModule('computer'); setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} />
+              <NavBtn icon={PrinterIcon} label="Printer" active={pmModule === 'printer' && activeTab === 'dashboard'} onClick={() => { setPmModule('printer'); setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} />
+              <div className="h-px bg-slate-800/50 my-8 mx-4"></div>
+              <NavBtn icon={FileText} label="Full Records" active={activeTab === 'table'} onClick={() => { setActiveTab('table'); setIsMobileMenuOpen(false); }} />
+              
+              <button onClick={() => { fetchFromSheet(); setIsMobileMenuOpen(false); }} disabled={isSyncing} className="w-full flex items-center gap-4 px-7 py-5 text-emerald-400 bg-emerald-950/20 rounded-[2.5rem] font-black text-[11px] uppercase border border-emerald-900/50 mt-10 hover:bg-emerald-900/40 transition-all shadow-lg">
+                {isSyncing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Sync Cloud
+              </button>
+            </nav>
+            <div className="space-y-4">
+              <button onClick={() => { setIsDbSettingsOpen(true); setIsMobileMenuOpen(false); }} className="w-full py-5 text-slate-400 font-black text-[10px] uppercase border border-slate-800 rounded-2xl flex items-center justify-center gap-2">
+                <Settings size={14} /> Database Settings
+              </button>
+              {userRole === 'admin' ? (
+                <button onClick={() => { setUserRole('general'); setIsMobileMenuOpen(false); }} className="w-full py-5 bg-rose-950/30 text-rose-500 rounded-[2rem] font-black text-[11px] uppercase border border-rose-900/30">Admin Logout</button>
+              ) : (
+                <button onClick={() => { setIsLoginModalOpen(true); setIsMobileMenuOpen(false); }} className="w-full py-5 bg-emerald-600 text-white rounded-[2rem] font-black text-[11px] uppercase shadow-2xl">Admin Auth</button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <aside className="hidden md:flex w-72 bg-slate-900 p-8 flex-col gap-10 sticky top-0 h-screen z-20 no-print shadow-2xl relative overflow-hidden text-left">
+        <div className="cursor-pointer relative z-10" onClick={() => setActiveTab('dashboard')}><BrandIdentity size="lg" /></div>
+        <nav className="space-y-3 flex-1 relative z-10">
           <NavBtn icon={Monitor} label="Computer" active={pmModule === 'computer' && activeTab === 'dashboard'} onClick={() => { setPmModule('computer'); setActiveTab('dashboard'); }} />
           <NavBtn icon={PrinterIcon} label="Printer" active={pmModule === 'printer' && activeTab === 'dashboard'} onClick={() => { setPmModule('printer'); setActiveTab('dashboard'); }} />
           <div className="h-px bg-slate-800/50 my-6 mx-4"></div>
           <NavBtn icon={FileText} label="Full Records" active={activeTab === 'table'} onClick={() => setActiveTab('table')} />
-          <div className="px-6 py-5 mt-6 bg-slate-800/40 rounded-[2rem] border border-slate-700/30">
-            <div className="flex items-center justify-between mb-4"><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Globe size={14} /> Cloud Sync</span><div className={`w-2 h-2 rounded-full ${isCloudConnected ? 'bg-emerald-500' : 'bg-slate-600'}`}></div></div>
-            <button onClick={() => fetchFromSheet()} disabled={isSyncing} className="w-full flex items-center justify-center gap-3 py-3 text-emerald-400 bg-emerald-950/20 rounded-xl font-black text-[10px] uppercase border border-emerald-800/40 hover:bg-emerald-900/30 transition-all shadow-lg">
-              {isSyncing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} <span>Sync Database</span>
-            </button>
-          </div>
+          <button onClick={() => fetchFromSheet()} disabled={isSyncing} className="w-full flex items-center gap-4 px-7 py-5 text-emerald-400 bg-emerald-950/20 rounded-[2.5rem] font-black text-[11px] uppercase border border-emerald-900/50 mt-6 hover:bg-emerald-900/40 transition-all shadow-lg">
+            {isSyncing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Sync Cloud
+          </button>
         </nav>
-        <div className="space-y-4">
-          <button onClick={() => setIsDbSettingsOpen(true)} className="w-full py-4 text-slate-400 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 border border-slate-800 rounded-xl hover:bg-slate-800 transition-all"><Database size={14} /> Link Database</button>
-          {userRole === 'general' ? <button onClick={() => setIsLoginModalOpen(true)} className="w-full py-5 bg-emerald-600 text-white rounded-[2rem] font-black text-[11px] uppercase shadow-2xl hover:bg-emerald-500">Admin Auth</button> : <button onClick={() => { setUserRole('general'); setIsAdminSession(false); }} className="w-full py-5 bg-rose-950/40 text-rose-500 rounded-[2rem] font-black text-[11px] uppercase border border-rose-900/30">Logout</button>}
+        
+        <div className="space-y-4 relative z-10">
+          <button onClick={() => setIsDbSettingsOpen(true)} className="w-full py-4 text-slate-400 font-black text-[10px] uppercase border border-slate-800 rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-800 transition-all"><Settings size={14} /> Database Settings</button>
+          {userRole === 'admin' ? (
+            <button onClick={() => setUserRole('general')} className="w-full py-5 bg-rose-950/30 text-rose-500 rounded-[2rem] font-black text-[11px] uppercase border border-rose-900/30">Admin Logout</button>
+          ) : (
+            <button onClick={() => setIsLoginModalOpen(true)} className="w-full py-5 bg-emerald-600 text-white rounded-[2rem] font-black text-[11px] uppercase shadow-2xl hover:bg-emerald-50 transition-all">Admin Auth</button>
+          )}
         </div>
       </aside>
 
-      {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 px-6 py-4 flex items-center justify-around z-[100] pb-safe no-print shadow-3xl">
-          <button onClick={() => { setPmModule('computer'); setActiveTab('dashboard'); }} className={`p-4 rounded-2xl transition-all ${pmModule === 'computer' && activeTab === 'dashboard' ? 'bg-emerald-600 text-white shadow-xl scale-110' : 'text-slate-500'}`}><Monitor size={24} /></button>
-          <button onClick={() => { setPmModule('printer'); setActiveTab('dashboard'); }} className={`p-4 rounded-2xl transition-all ${pmModule === 'printer' && activeTab === 'dashboard' ? 'bg-emerald-600 text-white shadow-xl scale-110' : 'text-slate-500'}`}><PrinterIcon size={24} /></button>
-          <button onClick={() => setActiveTab('table')} className={`p-4 rounded-2xl transition-all ${activeTab === 'table' ? 'bg-emerald-600 text-white shadow-xl scale-110' : 'text-slate-500'}`}><FileText size={24} /></button>
-          <button onClick={() => setIsLoginModalOpen(true)} className={`p-4 rounded-2xl text-slate-500`}><Lock size={24} /></button>
-      </nav>
-
-      <main className="flex-1 p-4 md:p-14 overflow-y-auto w-full mb-28 md:mb-0 bg-[#f8fafc]">
-        <motion.header initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6 no-print">
-          <div>
-            <div className="flex items-center gap-4 mb-2"><div className="p-3 bg-emerald-600 text-white rounded-[1.25rem] shadow-xl"><Wrench size={24} /></div><h2 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight capitalize">{pmModule} PM Dashboard</h2></div>
-            <p className="text-slate-400 font-semibold text-xs md:text-sm">{COMPANY_NAME} • Professional IT Dashboard • GMT+7</p>
+      <main className="flex-1 p-4 md:p-14 overflow-y-auto w-full mb-28 md:mb-0 relative z-10 text-left">
+        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6 no-print">
+          <div className="text-left">
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight uppercase leading-none">{pmModule} PM System</h2>
+            <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-2">{COMPANY_NAME} • Professional Monitoring</p>
           </div>
-          <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto">
+          <div className="flex gap-4 w-full lg:w-auto">
             <button onClick={() => { 
-                const dev = pmModule === 'computer' ? 'Computer' : 'Printer';
-                setEditingItem({ 
-                  id: '', 
-                  date: new Date().toISOString(), 
-                  department: DEPARTMENTS[0], 
-                  device: dev, 
-                  personnel: '', 
-                  technician: '', 
-                  status: 'Pending', 
-                  activity: '', 
-                  computerName: '', 
-                  computerUser: '',
-                  password: '',
-                  serverPassword: '',
-                  antivirus: '',
-                  imageUrl: '',
-                  startDate: '',
-                  warrantyExpiry: '',
-                  spareField: ''
-                });
-                setIsModalOpen(true);
-            }} className="flex-1 lg:flex-none flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-emerald-600 to-emerald-800 text-white rounded-[1.5rem] font-black shadow-2xl text-[12px] uppercase hover:scale-95 transition-all"><Plus size={20} /> Add Record</button>
-            <button onClick={exportToExcel} className="flex-1 lg:flex-none p-4 text-slate-700 bg-white rounded-[1.5rem] border border-slate-200 shadow-xl font-black text-[10px] uppercase flex items-center justify-center gap-3 hover:bg-slate-50 transition-all"><Download size={18} /> Export Excel</button>
+              if(userRole !== 'admin') return setIsLoginModalOpen(true);
+              setEditingItem({ id: '', date: new Date().toISOString(), department: DEPARTMENTS[0], device: pmModule === 'computer' ? 'Computer' : 'Printer', personnel: '', technician: '', status: 'Pending', activity: '', computerName: '', computerUser: '', password: '', serverPassword: '', antivirus: '', startDate: '', warrantyExpiry: '', spareField: '', imageUrl: '', assetName: '', model: '', serialNumber: '', location: '' }); 
+              setIsModalOpen(true); 
+            }} className="flex-1 lg:flex-none flex items-center justify-center gap-3 px-8 py-4 bg-emerald-600 text-white rounded-[1.5rem] font-black shadow-xl text-[12px] uppercase hover:scale-95 transition-all">
+              <Plus size={18} /> New Record
+            </button>
           </div>
-        </motion.header>
+        </header>
 
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' ? (
-            <motion.div key="dash" variants={containerVariants} initial="hidden" animate="show" className="space-y-8 md:space-y-12">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 md:gap-10">
+            <motion.div key="dash" variants={containerVariants} initial="hidden" animate="show" className="space-y-10">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
                 <MetricCard icon={Layers} title="Total Assets" value={stats.total.toString()} subtitle="Managed Units" color="emerald" />
-                <MetricCard icon={CheckCircle} title="Efficiency" value={`${stats.completionRate}%`} subtitle="Completion" color="teal" />
-                <MetricCard icon={ShieldAlert} title="Status" value={isCloudConnected ? "Live" : "No Link"} subtitle="Cloud Sync Status" color={isCloudConnected ? "emerald" : "rose"} />
-                <MetricCard icon={Activity} title="Workload" value={stats.total > 0 ? "Active" : "Idle"} subtitle="System Analysis" color="amber" />
+                <MetricCard icon={CheckCircle} title="Efficiency" value={`${stats.completionRate}%`} subtitle="Maintenance rate" color="teal" />
+                <MetricCard icon={ShieldAlert} title="Cloud Sync" value={isCloudConnected ? "Online" : "Offline"} subtitle="Database link" color={isCloudConnected ? "emerald" : "rose"} />
+                <MetricCard icon={Activity} title="Status" value="Live" subtitle="System operational" color="amber" />
               </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
-                <motion.div variants={bouncyItem} className="bg-white p-8 md:p-12 rounded-[3rem] border border-slate-100 shadow-2xl overflow-hidden">
-                  <div className="flex items-center gap-4 mb-8"><Activity size={24} className="text-emerald-600" /><h3 className="text-xl font-black text-slate-800">Unit Distribution (Dept)</h3></div>
-                  <ResponsiveContainer width="100%" height={320}><BarChart data={stats.deptStats} layout="vertical"><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" /><XAxis type="number" hide /><YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b', fontWeight: 800 }} width={140} /><Tooltip cursor={{ fill: 'rgba(5, 150, 105, 0.05)' }} /><Bar dataKey="count" radius={[0, 10, 10, 0]} barSize={18}>{stats.deptStats.map((_, i) => (<Cell key={`cell-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />))}</Bar></BarChart></ResponsiveContainer>
-                </motion.div>
-                <motion.div variants={bouncyItem} className="bg-white p-8 md:p-12 rounded-[3rem] border border-slate-100 shadow-2xl overflow-hidden">
-                  <div className="flex items-center gap-4 mb-8"><TrendingUp size={24} className="text-emerald-500" /><h3 className="text-xl font-black text-slate-800">PM Activity Trend</h3></div>
-                  <ResponsiveContainer width="100%" height={320}><AreaChart data={stats.dailyTrend}><defs><linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#10b981" stopOpacity={0.25}/><stop offset="95%" stopColor="#10b981" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" /><XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 800 }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 800 }} /><Tooltip /><Area type="monotone" dataKey="count" stroke="#10b981" strokeWidth={4} fillOpacity={1} fill="url(#colorCount)" /></AreaChart></ResponsiveContainer>
-                </motion.div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
+                  <h3 className="text-lg font-black mb-10 uppercase flex items-center gap-3 tracking-tighter"><Monitor size={20} className="text-emerald-600" /> Dept Workload</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={stats.deptStats} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 800, fill: '#64748b' }} width={140} />
+                      <Tooltip />
+                      <Bar dataKey="count" radius={[0, 10, 10, 0]} barSize={14}>
+                        {stats.deptStats.map((_, i) => (<Cell key={`cell-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100">
+                  <h3 className="text-lg font-black mb-10 uppercase flex items-center gap-3 tracking-tighter"><TrendingUp size={20} className="text-emerald-600" /> Activity Trend</h3>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <AreaChart data={stats.dailyTrend}>
+                      <Tooltip />
+                      <Area type="monotone" dataKey="count" stroke="#10b981" strokeWidth={5} fill="#10b98120" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </motion.div>
           ) : (
-            <motion.div key="table" initial="hidden" animate="show" variants={containerVariants} className="space-y-6">
-              <div className="bg-white rounded-[3rem] border border-slate-100 shadow-3xl overflow-hidden overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 text-[11px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                    <tr><th className="px-10 py-8">Asset (A)</th><th className="px-10 py-8">Status (G)</th><th className="px-10 py-8">User (F) / Tech (O)</th><th className="px-10 py-8">Date (B)</th><th className="px-10 py-8 text-emerald-600">Next PM (C)</th>{pmModule === 'computer' && <th className="px-10 py-8">PC Auth (K)</th>}<th className="px-10 py-8 text-right no-print">Actions</th></tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50">
-                    {filteredItems.map(it => (
-                      <motion.tr key={it.id} variants={bouncyItem} className="transition-colors group hover:bg-emerald-50/10">
-                        <td className="px-10 py-8">
-                          <div className="flex items-center gap-5">
-                            {it.imageUrl ? <img src={it.imageUrl} className="w-12 h-12 rounded-2xl object-cover border-2 border-slate-100" alt="S" /> : <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-300 border border-slate-200"><ImageIcon size={20} /></div>}
-                            <div><p className="font-black text-slate-900 text-[15px]">{it.computerName || 'UNNAMED'}</p><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{it.id} • {it.department}</p></div>
-                          </div>
-                        </td>
-                        <td className="px-10 py-8"><span className={`px-4 py-2 rounded-xl text-[10px] font-black border shadow-sm uppercase ${it.status === 'Completed' ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-white'}`}>{it.status}</span></td>
-                        <td className="px-10 py-8"><p className="text-sm font-extrabold text-slate-800 truncate max-w-[140px]">{it.personnel}</p><p className="text-[9px] text-slate-400 uppercase font-black tracking-widest mt-1">{it.technician || '-'}</p></td>
-                        <td className="px-10 py-8"><span className="text-[11px] font-black text-slate-700">{formatDateDisplay(it.date)}</span></td>
-                        <td className="px-10 py-8"><span className={`text-[11px] font-black ${it.status === 'Completed' ? 'text-emerald-600 bg-emerald-50' : 'text-slate-400'} px-3 py-1.5 rounded-lg`}>{it.nextPmDate ? formatDateDisplay(it.nextPmDate) : '-'}</span></td>
-                        {pmModule === 'computer' && <td className="px-10 py-8"><p className="text-[11px] font-mono font-bold text-slate-500 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100 inline-block">{isAdminSession ? it.password || 'N/A' : '••••••••'}</p></td>}
-                        <td className="px-10 py-8 text-right flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all no-print">
-                          <button onClick={() => { setQrItem(it); setIsQrModalOpen(true); }} className="p-3.5 text-emerald-600 bg-emerald-50 rounded-2xl hover:bg-emerald-100 shadow-sm"><QrCode size={18} /></button>
-                          <button onClick={() => { setEditingItem({...it}); setIsModalOpen(true); }} className="p-3.5 text-slate-600 bg-slate-50 rounded-2xl hover:bg-slate-100 shadow-sm"><Edit2 size={18} /></button>
-                          {userRole === 'admin' && (<button onClick={() => { if(window.confirm('ยืนยันลบข้อมูล?')) setItems(prev => prev.filter(i => String(i.id).trim() !== String(it.id).trim())); }} className="p-3.5 text-red-600 bg-rose-50 rounded-2xl hover:bg-rose-100 shadow-sm"><Trash2 size={18} /></button>)}
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            <motion.div key="table" variants={containerVariants} initial="hidden" animate="show" className="bg-white rounded-[3rem] shadow-2xl overflow-hidden border border-slate-100 overflow-x-auto transition-all text-left">
+              <table className="w-full text-left border-collapse">
+                <thead className="bg-slate-50/80 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  <tr>
+                    <th className="px-10 py-8 text-left">Asset Identifier</th>
+                    <th className="px-10 py-8 text-left">Status</th>
+                    <th className="px-10 py-8 text-left">Assigned User</th>
+                    <th className="px-10 py-8 text-left">Date</th>
+                    <th className="px-10 py-8 text-left">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredItems.map(it => (
+                    <tr key={it.id} className="hover:bg-slate-50 transition-all group">
+                      <td className="px-10 py-8 text-left">
+                        <div>
+                          <p className="font-black text-slate-800 text-[15px]">{it.assetName || it.computerName || it.id}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{it.id} | {it.model || '-'}</p>
+                        </div>
+                      </td>
+                      <td className="px-10 py-8 text-left">
+                        <span className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase ${it.status === 'Completed' ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'}`}>
+                          {it.status}
+                        </span>
+                      </td>
+                      <td className="px-10 py-8 text-sm font-extrabold text-slate-700 text-left">{it.personnel || '-'}</td>
+                      <td className="px-10 py-8 text-xs font-black text-slate-600 text-left">{formatDateDisplay(it.date)}</td>
+                      <td className="px-10 py-8 text-left">
+                        <div className="flex gap-3">
+                          <button onClick={() => { setQrItem(it); setIsQrModalOpen(true); }} className="p-3 text-emerald-600 bg-emerald-50 rounded-2xl border border-emerald-100 hover:scale-110 transition-transform"><QrCode size={18} /></button>
+                          {userRole === 'admin' && (
+                            <button onClick={() => { setEditingItem({...it}); setIsModalOpen(true); }} className="p-3 text-slate-600 bg-slate-50 rounded-2xl border border-slate-100 hover:bg-emerald-100 hover:text-emerald-600 transition-all shadow-sm flex items-center gap-2">
+                              <Edit2 size={18} />
+                              <span className="text-[10px] font-black uppercase">แก้ไข</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
-      {/* --- SETTINGS MODAL --- */}
-      <AnimatePresence>{isDbSettingsOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-xl">
-          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[3rem] shadow-4xl w-full max-w-lg p-10 space-y-8">
-            <div className="flex justify-between items-center"><div className="flex items-center gap-4"><Database className="text-emerald-600" size={28} /><h3 className="text-xl font-black uppercase tracking-tight">Cloud Database</h3></div><button onClick={() => setIsDbSettingsOpen(false)} className="p-3 bg-slate-100 text-slate-400 rounded-2xl hover:text-red-500"><X size={24} /></button></div>
-            
-            <div className="bg-amber-50 border border-amber-200 p-6 rounded-[2rem] space-y-4">
-              <div className="flex gap-4"><AlertCircle className="text-amber-600 shrink-0" size={20} /><p className="text-[12px] font-bold text-amber-900 leading-relaxed"><strong>คำแนะนำสำคัญ:</strong> เพื่อป้องกัน Error "null reading getDataRange" กรุณาตรวจสอบว่าใน Google Sheets ของคุณมีแผ่นงานที่ชื่อว่า <span className="underline font-black">Data</span> อยู่ด้วยครับ</p></div>
-              <ul className="text-[10px] text-amber-800 font-bold list-disc ml-8 space-y-1">
-                <li>Extensions &gt; Apps Script</li>
-                <li>Deploy &gt; New Deployment &gt; Web App</li>
-                <li>Who has access: <strong>Anyone</strong></li>
-              </ul>
-            </div>
-
-            <div className="space-y-6">
-              <FormInput label="Google Script Web App URL" value={sheetUrl} onChange={setSheetUrl} placeholder="https://script.google.com/macros/s/..." />
-              <button onClick={() => { fetchFromSheet(); setIsDbSettingsOpen(false); }} className="w-full py-5 bg-emerald-600 text-white rounded-[1.5rem] font-black text-xs uppercase shadow-3xl hover:bg-emerald-500 active:scale-95 transition-all">บันทึกและเชื่อมต่อ</button>
-            </div>
-          </motion.div>
-        </div>
-      )}</AnimatePresence>
-
-      <AnimatePresence>{isLoginModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-xl">
-          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[3rem] shadow-4xl w-full max-sm p-10 space-y-8">
-            <div className="text-center space-y-4"><div className="inline-block p-5 bg-emerald-600 text-white rounded-[1.5rem] shadow-2xl"><Lock size={32} /></div><h3 className="text-2xl font-black uppercase">Admin Auth</h3></div>
-            <form onSubmit={handleLogin} className="space-y-6">
-              <FormInput label="Username" value={loginForm.username} onChange={val => setLoginForm({...loginForm, username: val})} />
-              <FormInput label="Password" type="password" value={loginForm.password} onChange={val => setLoginForm({...loginForm, password: val})} />
-              {loginError && <p className="text-[11px] font-black text-red-500 uppercase text-center bg-red-50 py-2 rounded-lg">{loginError}</p>}
-              <button type="submit" className="w-full py-5 bg-emerald-600 text-white rounded-[1.5rem] font-black text-xs uppercase shadow-3xl hover:bg-emerald-500 transition-all">ยืนยันตัวตน</button>
-              <button type="button" onClick={() => setIsLoginModalOpen(false)} className="w-full text-slate-400 font-black text-[11px] uppercase tracking-widest text-center">ยกเลิก</button>
-            </form>
-          </motion.div>
-        </div>
-      )}</AnimatePresence>
-
       <AnimatePresence>{isModalOpen && editingItem && (
-        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center bg-slate-900/70 backdrop-blur-md no-print overflow-y-auto">
-          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-t-[3rem] md:rounded-[4rem] shadow-4xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[95vh]">
-            <div className="p-8 md:p-10 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white z-10">
-              <div className="flex items-center gap-4"><div className="p-3 bg-emerald-600 text-white rounded-2xl shadow-xl"><Wrench size={20} /></div><h3 className="text-2xl font-black text-slate-800 tracking-tight uppercase">{editingItem.id ? 'แก้ไขข้อมูล' : 'เพิ่มข้อมูลใหม่'}</h3></div>
-              <button onClick={() => setIsModalOpen(false)} className="p-3 bg-slate-100 text-slate-400 rounded-2xl hover:text-red-500 transition-all"><X size={24} /></button>
+        <div className="fixed inset-0 z-[500] flex items-end md:items-center justify-center bg-slate-900/70 backdrop-blur-sm overflow-y-auto pt-10 no-print">
+          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-t-[3rem] md:rounded-[3rem] w-full max-w-6xl overflow-hidden flex flex-col max-h-[90vh] shadow-2xl text-left">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-50">
+              <div className="flex items-center gap-4 text-left">
+                <div className="p-3 bg-emerald-600 text-white rounded-2xl shadow-lg">
+                  <Wrench size={22} />
+                </div>
+                <div className="text-left">
+                  <h3 className="text-xl font-black uppercase tracking-tight">{editingItem.id ? 'Modify Digital Asset Record' : 'Create New Asset Record'}</h3>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Management Portal • {editingItem.id || 'Draft'}</p>
+                </div>
+              </div>
+              <button onClick={() => setIsModalOpen(false)} className="p-4 bg-slate-50 text-slate-400 rounded-2xl hover:text-rose-500 transition-all"><X size={22} /></button>
             </div>
-            <form onSubmit={handleSave} className="p-8 md:p-10 overflow-y-auto space-y-10 flex-1 pb-28">
-              <div className="space-y-6">
-                <div className="flex items-center gap-3"><ImageIcon size={22} className="text-emerald-500" /><label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Hardware Link / Proof Image (Column N)</label></div>
-                <div className="flex flex-col sm:flex-row gap-8 items-center bg-slate-50 p-6 rounded-[2.5rem] border border-slate-100">
-                   <div className="w-full sm:w-48 h-48 rounded-[2rem] bg-white border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden relative shadow-inner">
-                      {editingItem.imageUrl ? <><img src={editingItem.imageUrl} alt="S" className="w-full h-full object-cover" /><button type="button" onClick={() => setEditingItem({...editingItem, imageUrl: ''})} className="absolute top-3 right-3 p-2 bg-red-600 text-white rounded-full shadow-2xl hover:scale-110 transition-transform"><Trash2 size={16} /></button></> : <Camera size={40} className="text-slate-200" />}
-                   </div>
-                   <label className="flex-1 flex items-center justify-center gap-3 w-full py-5 bg-emerald-600 text-white rounded-2xl border border-emerald-500 font-black text-[11px] uppercase cursor-pointer hover:bg-emerald-500 transition-all shadow-xl"><Upload size={18} /> <span>Upload / Capture Link (N)</span><input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} /></label>
+            
+            <form onSubmit={handleSave} className="p-10 space-y-12 overflow-y-auto pb-24 text-left no-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                 <div className="md:col-span-1 space-y-4">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 flex items-center gap-2"><ImageIcon size={14} /> Documentation Photo (Column P)</label>
+                    <div className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center overflow-hidden group relative shadow-inner">
+                       {editingItem.imageUrl ? (
+                         <>
+                           <img src={editingItem.imageUrl} className="w-full h-full object-cover" />
+                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-4">
+                              <button type="button" onClick={() => cameraInputRef.current?.click()} className="p-3 bg-emerald-600 text-white rounded-full hover:scale-110 transition-transform"><Camera size={24} /></button>
+                              <button type="button" onClick={() => fileInputRef.current?.click()} className="p-3 bg-white text-emerald-600 rounded-full hover:scale-110 transition-transform"><Upload size={24} /></button>
+                           </div>
+                         </>
+                       ) : (
+                         <div className="flex flex-col items-center gap-6 text-center">
+                            <div className="flex gap-4">
+                               <button type="button" onClick={() => cameraInputRef.current?.click()} className="p-5 bg-white text-emerald-600 rounded-3xl shadow-xl hover:bg-emerald-50 transition-colors"><Camera size={32} /></button>
+                               <button type="button" onClick={() => fileInputRef.current?.click()} className="p-5 bg-white text-emerald-600 rounded-3xl shadow-xl hover:bg-emerald-50 transition-colors"><Upload size={32} /></button>
+                            </div>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Capture or Upload</span>
+                         </div>
+                       )}
+                       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageUpload} />
+                    </div>
+                 </div>
+
+                 <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+                    <FormInput label="Asset ID (Column A)" icon={Hash} value={editingItem.id} onChange={val => setEditingItem({...editingItem, id: val})} required placeholder="TC-XXXX-XXXX" />
+                    <FormInput label="PM Date (Column B)" type="date" value={toISODate(editingItem.date)} onChange={val => setEditingItem({...editingItem, date: val})} />
+                    <FormInput label="Next PM Date (Column C)" value={formatDateDisplay(calculateNextPM(editingItem.date, editingItem.device))} readOnly icon={Calendar} />
+                    <FormInput label="Asset Name (Common Name)" icon={Tag} value={editingItem.assetName || ''} onChange={val => setEditingItem({...editingItem, assetName: val})} placeholder="Ex: Finance Laptop" />
+                    <FormInput label="Model / Spec" icon={Cpu} value={editingItem.model || ''} onChange={val => setEditingItem({...editingItem, model: val})} placeholder="Ex: Dell Latitude 5420" />
+                    <FormInput label="Serial Number (S/N)" value={editingItem.serialNumber || ''} onChange={val => setEditingItem({...editingItem, serialNumber: val})} placeholder="Ex: ABC123XYZ" />
+                    <FormInput label="Location (Area)" icon={MapPin} value={editingItem.location || ''} onChange={val => setEditingItem({...editingItem, location: val})} placeholder="Ex: Building 2, Floor 3" />
+                    <FormSelect label="Department Unit (Column D)" value={editingItem.department} options={DEPARTMENTS} onChange={val => setEditingItem({...editingItem, department: val})} />
+                    <FormSelect label="Category (Column E)" value={editingItem.device} options={['Computer', 'Printer']} onChange={val => setEditingItem({...editingItem, device: val as any})} />
+                 </div>
+              </div>
+
+              <div className="space-y-6 text-left">
+                <div className="flex items-center gap-3">
+                   <div className="w-1.5 h-6 bg-emerald-600 rounded-full"></div>
+                   <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Login & Security Controls</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 text-left">
+                   <FormInput label="Login User (Column J)" icon={Lock} value={editingItem.computerUser || ''} onChange={val => setEditingItem({...editingItem, computerUser: val})} placeholder="Login Name" />
+                   <FormInput label="Password (Column K)" icon={Key} type="password" value={editingItem.password || ''} onChange={val => setEditingItem({...editingItem, password: val})} />
+                   <FormInput label="Server Pass (Column L)" icon={Key} type="password" value={editingItem.serverPassword || ''} onChange={val => setEditingItem({...editingItem, serverPassword: val})} />
+                   <FormInput label="Antivirus (Column M)" icon={ShieldCheck} value={editingItem.antivirus || ''} onChange={val => setEditingItem({...editingItem, antivirus: val})} placeholder="Protection Software" />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-7">
-                <FormInput label="Asset Identity (A)" value={editingItem.id} onChange={val => setEditingItem({...editingItem, id: val})} placeholder="ตัวอย่าง: PM-2568-001" required />
-                <FormInput label="Inspection Date (B)" type="date" value={toISODate(editingItem.date)} onChange={val => setEditingItem({...editingItem, date: val})} />
-                <div className="bg-emerald-50/50 p-5 rounded-[1.5rem] border border-emerald-100/50 flex items-center justify-between">
-                   <div className="flex items-center gap-3">
-                      <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg"><Calendar size={18} /></div>
-                      <div>
-                        <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Calculated Next PM (C)</p>
-                        <p className="font-black text-emerald-900 text-[13px]">{editingItem.status === 'Completed' ? formatDateDisplay(calculateNextPM(editingItem.date, editingItem.device)) : 'Waiting for Completed status'}</p>
-                      </div>
-                   </div>
-                   <div className="text-[9px] font-bold text-emerald-500 uppercase px-2 py-1 bg-white rounded-md border border-emerald-100">{editingItem.device === 'Computer' ? '+6 Months' : '+2 Months'}</div>
-                </div>
-                <FormSelect label="Department Unit (D)" value={editingItem.department} options={DEPARTMENTS} onChange={val => setEditingItem({...editingItem, department: val})} />
-                <FormSelect label="Device Type (E)" value={editingItem.device} options={['Computer', 'Printer']} onChange={val => setEditingItem({...editingItem, device: val as any})} />
-                <FormInput label="Personnel User (F)" value={editingItem.personnel} onChange={val => setEditingItem({...editingItem, personnel: val})} placeholder="ชื่อ-นามสกุล ผู้ใช้งาน" />
-                <FormInput label="Assigned Technician (O)" value={editingItem.technician || ''} onChange={val => setEditingItem({...editingItem, technician: val})} placeholder="ชื่อช่างผู้ปฏิบัติงาน" />
-                <FormInput label="Hostname (I)" value={editingItem.computerName} onChange={val => setEditingItem({...editingItem, computerName: val})} placeholder="IT-PC-MAIN" />
-                <FormInput label="Login Account (J)" value={editingItem.computerUser} onChange={val => setEditingItem({...editingItem, computerUser: val})} placeholder="Domain User" />
-                <FormSelect label="Work Status (G)" value={editingItem.status} options={['Pending', 'In Progress', 'Completed']} onChange={val => setEditingItem({...editingItem, status: val as any})} />
-                {editingItem.device === 'Computer' && (
-                  <>
-                    <FormInput label="PC Auth Credential (K)" value={editingItem.password || ''} onChange={val => setEditingItem({...editingItem, password: val})} showToggle isLocked={!isAdminSession} onUnlock={handleRequestUnlock} />
-                    <FormInput label="Server Auth Access (L)" value={editingItem.serverPassword || ''} onChange={val => setEditingItem({...editingItem, serverPassword: val})} showToggle isLocked={!isAdminSession} onUnlock={handleRequestUnlock} />
-                    <FormInput label="Anti-Virus Status (M)" value={editingItem.antivirus || ''} onChange={val => setEditingItem({...editingItem, antivirus: val})} />
-                  </>
-                )}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+                 <FormInput label="Assigned End-User (Column F)" value={editingItem.personnel || ''} onChange={val => setEditingItem({...editingItem, personnel: val})} placeholder="ชื่อพนักงาน" />
+                 <FormInput label="Responsible Technician (Column O)" value={editingItem.technician || ''} onChange={val => setEditingItem({...editingItem, technician: val})} placeholder="ชื่อช่างผู้ตรวจเช็ค" />
+                 <FormInput label="System Hostname (Column I)" value={editingItem.computerName || ''} onChange={val => setEditingItem({...editingItem, computerName: val})} placeholder="Ex: LAPTOP-ADMIN01" />
               </div>
 
-              {/* Lifecycle & Warranty (Old Fields Restored) */}
-              <div className="space-y-6">
-                <div className="flex items-center gap-3"><Info size={22} className="text-emerald-500" /><label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Lifecycle & Lifecycle Proof</label></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-7 p-7 bg-slate-50 rounded-[2.5rem] border border-slate-100">
-                  <FormInput label="วันเริ่มใช้งาน (Start Date)" type="date" value={editingItem.startDate || ''} onChange={val => setEditingItem({...editingItem, startDate: val})} />
-                  <FormInput label="วันหมดประกัน (Warranty Expiry)" type="date" value={editingItem.warrantyExpiry || ''} onChange={val => setEditingItem({...editingItem, warrantyExpiry: val})} />
-                  <div className="md:col-span-2">
-                    <FormInput label="หมายเหตุเพิ่มเติม (Spare Field / Notes)" value={editingItem.spareField || ''} onChange={val => setEditingItem({...editingItem, spareField: val})} placeholder="ระบุรายละเอียดเพิ่มเติมเกี่ยวกับอุปกรณ์..." />
-                  </div>
+              <div className="space-y-6 text-left">
+                <div className="flex items-center gap-3">
+                   <div className="w-1.5 h-6 bg-slate-400 rounded-full"></div>
+                   <h4 className="text-sm font-black text-slate-800 uppercase tracking-tight">Lifecycle & Operation</h4>
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
+                   <FormInput label="Start of Operation" type="date" value={toISODate(editingItem.startDate)} onChange={val => setEditingItem({...editingItem, startDate: val})} />
+                   <FormInput label="Warranty Expiry" type="date" value={toISODate(editingItem.warrantyExpiry)} onChange={val => setEditingItem({...editingItem, warrantyExpiry: val})} />
+                   <FormSelect label="Execution Status (Column G)" value={editingItem.status} options={['Pending', 'In Progress', 'Completed']} onChange={val => setEditingItem({...editingItem, status: val as any})} />
+                </div>
+                <FormInput label="Additional Remarks (Spare)" value={editingItem.spareField || ''} onChange={val => setEditingItem({...editingItem, spareField: val})} placeholder="หมายเหตุเพิ่มเติม..." />
               </div>
 
-              <div className="space-y-6">
-                <div className="flex items-center gap-3"><CheckSquare size={22} className="text-emerald-500" /><label className="text-[11px] font-black text-slate-500 uppercase tracking-widest">Full PM Verification Checklist (H)</label></div>
-                <div className="grid grid-cols-1 gap-3 p-7 bg-slate-50 rounded-[2.5rem] border border-slate-100 shadow-inner">
+              <div className="space-y-6 text-left">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-4 flex items-center gap-2"><CheckSquare size={14} /> Quality Maintenance Checklist (Column H)</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 shadow-inner">
                   {(editingItem.device === 'Computer' ? COMPUTER_STANDARD_ACTIVITIES : PRINTER_STANDARD_ACTIVITIES).map((act, i) => {
                     const isChecked = String(editingItem.activity || '').includes(act);
-                    return (<label key={i} className="flex items-center gap-4 p-4.5 bg-white rounded-2xl border border-slate-100 cursor-pointer hover:border-emerald-400 transition-all shadow-md group">
-                      <input type="checkbox" className="hidden" checked={!!isChecked} onChange={() => {
-                        const acts = String(editingItem.activity || '').split(' | ').filter(x => x);
-                        const next = isChecked ? acts.filter(x => x !== act) : [...acts, act];
-                        setEditingItem({...editingItem, activity: next.join(' | ')});
-                      }} /><div className={`p-1.5 rounded-lg transition-all ${isChecked ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-100 text-slate-300'}`}>{isChecked ? <CheckCircle size={18} /> : <Square size={18} />}</div><span className={`text-[12px] font-extrabold ${isChecked ? 'text-emerald-800' : 'text-slate-500'}`}>{act}</span>
-                    </label>);
+                    return (
+                      <label key={i} className={`flex items-center gap-4 p-5 rounded-2xl border transition-all cursor-pointer ${isChecked ? 'bg-white border-emerald-500 shadow-md translate-x-1' : 'bg-white border-slate-100 hover:border-slate-300'}`}>
+                        <input type="checkbox" className="hidden" checked={isChecked} onChange={() => {
+                          const currentActs = String(editingItem.activity || '').split(' | ').filter(x => x);
+                          const newActs = isChecked ? currentActs.filter(a => a !== act) : [...currentActs, act];
+                          setEditingItem({...editingItem, activity: newActs.join(' | ')});
+                        }} />
+                        <div className={`p-1.5 rounded-lg transition-colors ${isChecked ? 'bg-emerald-600 text-white shadow-lg' : 'bg-slate-100 text-slate-300'}`}>
+                          {isChecked ? <CheckCircle size={16} /> : <Square size={16} />}
+                        </div>
+                        <span className={`text-xs font-bold ${isChecked ? 'text-slate-900' : 'text-slate-400'}`}>{act}</span>
+                      </label>
+                    );
                   })}
                 </div>
               </div>
-              <div className="sticky bottom-0 bg-white pt-6 pb-6 border-t border-slate-100 z-10"><button type="submit" className="w-full py-5 bg-emerald-600 text-white rounded-[2rem] font-black text-sm uppercase shadow-3xl hover:bg-emerald-500 active:scale-95 transition-all">Establish & Sync Record (A-R)</button></div>
+
+              <div className="bg-emerald-50 p-8 rounded-[3rem] border-2 border-emerald-100/50 flex flex-col md:flex-row items-center justify-between gap-8 shadow-inner text-left">
+                <div className="text-left w-full md:w-auto">
+                  <p className="text-[10px] font-black text-emerald-600 uppercase mb-2 tracking-widest">Next Scheduled Maintenance Cycle Projection</p>
+                  <p className="text-3xl font-black text-emerald-900">{editingItem.status === 'Completed' ? formatDateDisplay(calculateNextPM(editingItem.date, editingItem.device)) : 'Cycle Valuation Pending'}</p>
+                  <p className="text-[9px] text-emerald-500 font-bold uppercase mt-2 opacity-60 flex items-center gap-2"><Info size={10} /> Auto-calculated upon completion status</p>
+                </div>
+                <div className="flex gap-4 w-full md:w-auto">
+                   <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 md:flex-none px-10 py-5 bg-white text-slate-400 rounded-[2rem] font-black text-xs uppercase hover:text-rose-500 transition-colors border border-slate-100 shadow-sm">Discard</button>
+                   <button 
+                     type="submit" 
+                     className="flex-1 md:flex-none px-12 py-5 bg-emerald-600 text-white rounded-[2rem] font-black text-xs uppercase shadow-2xl shadow-emerald-600/30 hover:bg-emerald-700 transition-all flex items-center justify-center gap-3 active:scale-95"
+                   >
+                     <Database size={20} /> Establish & Cloud Sync
+                   </button>
+                </div>
+              </div>
             </form>
           </motion.div>
         </div>
       )}</AnimatePresence>
 
       <AnimatePresence>{isQrModalOpen && qrItem && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-xl no-print">
-          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[3rem] shadow-4xl w-full max-w-sm p-10 text-center space-y-8 relative">
-            <div className="flex justify-between items-center"><h3 className="text-2xl font-black text-slate-800 tracking-tight uppercase">Identity Key</h3><button onClick={() => setIsQrModalOpen(false)} className="p-3 bg-slate-100 text-slate-400 rounded-2xl hover:text-red-500"><X size={26} /></button></div>
-            <div className="bg-slate-50 p-8 rounded-[3rem] border border-slate-100 inline-block shadow-2xl"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${window.location.origin}${window.location.pathname}?view=${qrItem.id}`)}`} alt="QR" className="w-48 h-48 rounded-2xl" /></div>
-            <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?view=${qrItem.id}`); setSyncMessage("ลิงค์ถูกคัดลอกแล้ว"); setTimeout(() => setSyncMessage(null), 2000); }} className="w-full p-5 bg-slate-100 text-slate-700 rounded-[2rem] flex items-center justify-center gap-3 font-black text-[11px] uppercase border border-slate-200 hover:bg-slate-200 transition-all"><Share2 size={18} /> Copy URL Link</button>
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-slate-900/80 backdrop-blur-md no-print text-left">
+          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[3rem] shadow-4xl w-full max-w-sm p-10 text-center relative overflow-hidden">
+             <button onClick={() => setIsQrModalOpen(false)} className="absolute top-8 right-8 text-slate-300 hover:text-rose-500 transition-colors"><X size={24} /></button>
+             <h3 className="text-xl font-black mb-8 uppercase tracking-tight text-slate-900">Asset Identity Card</h3>
+             <div className="bg-slate-50 p-8 rounded-[2rem] border border-slate-100 inline-block mb-10 shadow-inner relative group">
+                <div className="absolute inset-0 bg-emerald-600/5 scale-110 blur-2xl opacity-0 group-hover:opacity-100 transition-all"></div>
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${appBaseUrl}?view=${qrItem.id}`)}`} alt="QR" className="w-44 h-44 rounded-xl relative z-10" />
+             </div>
+             <button 
+                onClick={() => setPublicViewId(qrItem.id)}
+                className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-xs uppercase shadow-2xl hover:bg-black transition-all flex items-center justify-center gap-3"
+              >
+                <Monitor size={16} /> Test View (Verification Mode)
+              </button>
+          </motion.div>
+        </div>
+      )}</AnimatePresence>
+
+      <AnimatePresence>{isDbSettingsOpen && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-xl no-print text-left">
+          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[3rem] p-12 w-full max-w-md space-y-8 shadow-4xl relative overflow-hidden text-center">
+            <h3 className="text-xl font-black uppercase tracking-tight text-slate-900">Cloud Integration</h3>
+            <FormInput label="GAS Web App Endpoint" value={sheetUrl} onChange={setSheetUrl} placeholder="https://script.google.com/macros/s/..." />
+            <div className="space-y-4 pt-4">
+              <button onClick={() => { fetchFromSheet(); setIsDbSettingsOpen(false); }} className="w-full py-6 bg-emerald-600 text-white rounded-[2rem] font-black text-xs uppercase shadow-2xl hover:bg-emerald-700 transition-all flex items-center justify-center gap-3">
+                <RefreshCw size={16} /> Connect Database
+              </button>
+              <button onClick={() => setIsDbSettingsOpen(false)} className="w-full text-slate-300 font-black text-[10px] uppercase hover:text-rose-500 transition-colors">Close Portal</button>
+            </div>
+          </motion.div>
+        </div>
+      )}</AnimatePresence>
+
+      <AnimatePresence>{isLoginModalOpen && (
+        <div className="fixed inset-0 z-[600] flex items-center justify-center p-6 bg-slate-900/95 backdrop-blur-2xl no-print text-left">
+          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[4rem] p-12 w-full max-w-sm space-y-10 shadow-4xl relative overflow-hidden text-center">
+            <div className="p-8 bg-emerald-600 text-white rounded-[2.5rem] inline-block shadow-3xl">
+              <Lock size={44} />
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-2xl font-black uppercase tracking-tight text-slate-900">Secure Access</h3>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Authorized Personnel Only</p>
+            </div>
+            <form onSubmit={handleLogin} className="space-y-8">
+              <div className="space-y-4">
+                <FormInput label="Admin Identifier" value={loginForm.username} onChange={val => setLoginForm({...loginForm, username: val})} />
+                <FormInput label="Security Credential" type="password" value={loginForm.password} onChange={val => setLoginForm({...loginForm, password: val})} />
+              </div>
+              {loginError && <p className="text-[10px] font-black text-rose-500 uppercase tracking-widest animate-bounce">{loginError}</p>}
+              <div className="space-y-4 pt-4">
+                <button type="submit" className="w-full py-6 bg-emerald-600 text-white rounded-[2rem] font-black text-xs uppercase shadow-2xl hover:bg-emerald-700 transition-all">Verify & Login</button>
+                <button type="button" onClick={() => setIsLoginModalOpen(false)} className="w-full text-slate-300 font-black text-[10px] uppercase hover:text-slate-900 transition-colors">Discard</button>
+              </div>
+            </form>
           </motion.div>
         </div>
       )}</AnimatePresence>
@@ -584,95 +818,75 @@ const App: React.FC = () => {
   );
 };
 
-// --- HELPERS ---
+// --- COMPONENTS & HELPERS ---
 const NavBtn: React.FC<{ icon: any; label: string; active: boolean; onClick: () => void }> = ({ icon: Icon, label, active, onClick }) => (
-  <button onClick={onClick} className={`w-full flex items-center gap-5 px-7 py-5 rounded-[2rem] transition-all border-2 ${active ? 'bg-emerald-600 border-emerald-500 text-white shadow-2xl scale-105' : 'text-slate-400 border-transparent hover:bg-slate-800/80 hover:text-slate-100'}`}><Icon size={20} /> <span className="text-sm font-black uppercase tracking-tight">{label}</span></button>
+  <button onClick={onClick} className={`w-full flex items-center gap-5 px-8 py-5 rounded-[2.5rem] transition-all border-2 ${active ? 'bg-emerald-600 border-emerald-500 text-white shadow-2xl scale-[1.03] z-10' : 'text-slate-500 border-transparent hover:bg-slate-800/80 hover:text-slate-200'}`}>
+    <Icon size={22} className={active ? 'animate-pulse' : ''} /> 
+    <span className="text-[13px] font-black uppercase tracking-tight">{label}</span>
+  </button>
 );
 
 const MetricCard: React.FC<{ title: string; value: string; subtitle: string; icon: React.ElementType; color: 'emerald' | 'teal' | 'rose' | 'amber' }> = ({ title, value, subtitle, icon: Icon, color }) => {
-  const themes = { emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100', teal: 'bg-teal-50 text-teal-600 border-teal-100', rose: 'bg-red-50 text-red-600 border-red-100', amber: 'bg-orange-50 text-orange-600 border-orange-100' };
+  const themes = { 
+    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-600/5', 
+    teal: 'bg-teal-50 text-teal-600 border-teal-100 shadow-teal-600/5', 
+    rose: 'bg-rose-50 text-rose-600 border-rose-100 shadow-rose-600/5', 
+    amber: 'bg-amber-50 text-amber-600 border-amber-100 shadow-amber-600/5' 
+  };
   return (
-    <motion.div variants={bouncyItem} className="bg-white p-6 md:p-8 rounded-[2.5rem] border border-slate-100 shadow-2xl group transition-all hover:scale-105">
-      <div className={`p-4 rounded-2xl inline-block mb-4 ${themes[color] || themes.emerald} border shadow-lg transition-transform group-hover:scale-110`}><Icon size={22} /></div>
-      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{title}</p>
-      <h4 className="text-2xl md:text-3xl font-black text-slate-900 truncate">{value}</h4>
-      <p className="text-[9px] text-slate-400 font-extrabold mt-1 uppercase tracking-tight">{subtitle}</p>
+    <motion.div variants={bouncyItem} className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl transition-all hover:shadow-2xl hover:-translate-y-1 text-left relative z-10">
+      <div className={`p-4 rounded-2xl inline-block mb-6 ${themes[color] || themes.emerald} border shadow-inner`}><Icon size={24} /></div>
+      <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest text-left">{title}</p>
+      <h4 className="text-3xl font-black text-slate-900 truncate tracking-tighter text-left">{value}</h4>
+      <p className="text-[9px] text-slate-400 font-extrabold uppercase mt-2 opacity-70 text-left">{subtitle}</p>
     </motion.div>
   );
 };
 
-const FormInput: React.FC<{ 
-  label: string; 
-  value: string; 
-  onChange?: (val: string) => void; 
-  type?: string; 
-  placeholder?: string; 
-  showToggle?: boolean; 
-  isLocked?: boolean; 
-  onUnlock?: () => void; 
-  required?: boolean;
-}> = ({ label, value, onChange, type = "text", placeholder, showToggle = false, isLocked = false, onUnlock, required }) => {
-  const [internalVisible, setInternalVisible] = useState(false);
-  const inputType = showToggle ? (internalVisible && !isLocked ? "text" : "password") : type;
-
-  return (
-    <div className="space-y-3">
-      <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-2">{label}</label>
-      <div className="relative group">
-        <input 
-          type={inputType} 
-          value={value || ''} 
-          onChange={e => onChange?.(e.target.value)} 
-          placeholder={placeholder} 
-          disabled={isLocked}
-          required={required}
-          className={`w-full px-5 py-4.5 rounded-2xl text-[13px] font-extrabold border-2 outline-none shadow-inner transition-all focus:ring-4 focus:ring-emerald-500/10 ${
-            isLocked 
-              ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed' 
-              : 'bg-slate-50 border-slate-100 text-slate-800 focus:border-emerald-600'
-          }`} 
-        />
-        
-        {isLocked && onUnlock && (
-          <button 
-            type="button" 
-            onClick={onUnlock} 
-            className="absolute right-3 top-1/2 -translate-y-1/2 px-4 py-2 bg-white border border-slate-200 text-emerald-600 rounded-xl text-[10px] font-black uppercase shadow-sm hover:bg-emerald-50 transition-colors flex items-center gap-2 group-hover:scale-105"
-          >
-            <Lock size={12} /> ปลดล็อค
-          </button>
-        )}
-
-        {showToggle && !isLocked && (
-          <button 
-            type="button" 
-            onClick={() => setInternalVisible(!internalVisible)} 
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-slate-400 hover:text-emerald-600"
-          >
-            {internalVisible ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-};
+const FormInput: React.FC<{ label: string; value: string; onChange?: (val: string) => void; type?: string; placeholder?: string; required?: boolean; icon?: any; readOnly?: boolean }> = ({ label, value, onChange, type = "text", placeholder, required, icon: Icon, readOnly = false }) => (
+  <div className="space-y-3 text-left">
+    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] ml-5 flex items-center gap-2">
+        {Icon && <Icon size={12} className="text-emerald-600" />}
+        {label}
+    </label>
+    <input 
+      type={type} 
+      value={value || ''} 
+      onChange={e => !readOnly && onChange?.(e.target.value)} 
+      placeholder={placeholder} 
+      required={required} 
+      readOnly={readOnly}
+      className={`w-full px-7 py-5 ${readOnly ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : 'bg-slate-50 border-slate-100 focus:border-emerald-600 focus:bg-white'} border-2 rounded-[1.5rem] text-[14px] font-bold outline-none transition-all shadow-inner`} 
+    />
+  </div>
+);
 
 const FormSelect: React.FC<{ label: string; value: string; options: string[]; onChange: (val: string) => void }> = ({ label, value, options, onChange }) => (
-  <div className="space-y-3">
-    <label className="text-[11px] font-black text-slate-500 uppercase tracking-widest ml-2">{label}</label>
+  <div className="space-y-3 text-left">
+    <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.15em] ml-5">{label}</label>
     <div className="relative">
-      <select value={value || ''} onChange={e => onChange(e.target.value)} className="w-full px-5 py-4.5 bg-slate-50 border-2 border-slate-100 rounded-2xl text-[13px] font-extrabold outline-none focus:border-emerald-600 appearance-none cursor-pointer shadow-inner">
+      <select 
+        value={value || ''} 
+        onChange={e => onChange(e.target.value)} 
+        className="w-full px-7 py-5 bg-slate-50 border-2 border-slate-100 rounded-[1.5rem] text-[14px] font-bold outline-none appearance-none cursor-pointer focus:border-emerald-600 focus:bg-white shadow-inner transition-all"
+      >
         {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
       </select>
-      <ChevronRight size={18} className="absolute right-5 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
+      <ChevronRight size={18} className="absolute right-7 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
     </div>
   </div>
 );
 
-const DataField: React.FC<{ label: string; value: string; mono?: boolean; small?: boolean }> = ({ label, value, mono = false, small = false }) => (
-  <div className="bg-slate-50 p-5 rounded-[1.5rem] border border-slate-100 shadow-sm">
-    <p className="text-[9px] font-black text-slate-400 uppercase mb-2 tracking-widest">{label}</p>
-    <p className={`font-black text-slate-800 truncate ${mono ? 'font-mono text-[13px]' : small ? 'text-[11px]' : 'text-[13px]'}`}>{value}</p>
+const DataField: React.FC<{ label: string; value: string; mono?: boolean; small?: boolean; icon?: React.ReactNode }> = ({ label, value, mono = false, small = false, icon }) => (
+  <div className="bg-slate-50/50 p-5 rounded-[1.5rem] border border-slate-100 shadow-sm text-left group hover:bg-white hover:border-emerald-100 transition-all">
+    <p className="text-[9px] font-black text-slate-400 uppercase mb-1.5 tracking-widest flex items-center gap-2 group-hover:text-emerald-500 transition-colors">
+      <div className="w-1 h-1 bg-slate-300 rounded-full group-hover:bg-emerald-400 transition-colors"></div>
+      {label}
+      {icon && <span className="ml-auto">{icon}</span>}
+    </p>
+    <p className={`font-black text-slate-800 truncate leading-none ${mono ? 'font-mono text-[14px] tracking-tight' : small ? 'text-[11px]' : 'text-[13px]'}`}>
+      {value || '-'}
+    </p>
   </div>
 );
 
