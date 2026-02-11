@@ -113,7 +113,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const viewId = params.get('view');
-    if (viewId) setPublicViewId(viewId);
+    if (viewId) setPublicViewId(viewId.trim());
   }, []);
 
   useEffect(() => { localStorage.setItem('pm_dashboard_data', JSON.stringify(items)); }, [items]);
@@ -171,15 +171,19 @@ const App: React.FC = () => {
       if (res.ok) { 
         const data = await res.json(); 
         if (Array.isArray(data)) {
-          const mapped: PMItem[] = data.map(row => ({
-            id: row[0], date: row[1], nextPmDate: row[2], department: row[3],
-            device: row[4], personnel: row[5], status: row[6], activity: row[7],
-            computerName: row[8], computerUser: row[9], password: row[10],
-            serverPassword: row[11], antivirus: row[12], imageUrl: row[13], technician: row[14],
-            startDate: row[15], warrantyExpiry: row[16], spareField: row[17],
-            deviceStatus: row[7]?.includes('Broken') ? 'Broken' : 'Ready'
-          }));
-          setItems(mapped.filter(i => i.id)); 
+          const mapped: PMItem[] = data.map(row => {
+            if (!row || !row[0]) return null;
+            return {
+              id: String(row[0]).trim(), date: row[1], nextPmDate: row[2], department: row[3],
+              device: row[4], personnel: row[5], status: row[6], activity: row[7],
+              computerName: row[8], computerUser: row[9], password: row[10],
+              serverPassword: row[11], antivirus: row[12], imageUrl: row[13], technician: row[14],
+              startDate: row[15], warrantyExpiry: row[16], spareField: row[17],
+              deviceStatus: row[7]?.includes('Broken') ? 'Broken' : 'Ready'
+            };
+          }).filter(i => i !== null) as PMItem[];
+          
+          setItems(mapped); 
           setIsCloudConnected(true);
           if (!silent) setSyncMessage('เชื่อมต่อ Cloud สำเร็จ');
         } else {
@@ -204,7 +208,7 @@ const App: React.FC = () => {
     if (!editingItem) return;
     if (!editingItem.id) return alert('กรุณาระบุ Asset ID (A)');
     
-    let finalItem = { ...editingItem };
+    let finalItem = { ...editingItem, id: String(editingItem.id).trim() };
     if (finalItem.status === 'Completed') {
       finalItem.nextPmDate = calculateNextPM(finalItem.date, finalItem.device);
     } else {
@@ -212,8 +216,8 @@ const App: React.FC = () => {
     }
     
     setItems(prev => {
-      const exists = prev.find(i => i.id === finalItem.id);
-      return exists ? prev.map(i => i.id === finalItem.id ? finalItem : i) : [...prev, finalItem];
+      const exists = prev.find(i => String(i.id).trim() === finalItem.id);
+      return exists ? prev.map(i => String(i.id).trim() === finalItem.id ? finalItem : i) : [...prev, finalItem];
     });
     
     setIsModalOpen(false); 
@@ -263,11 +267,13 @@ const App: React.FC = () => {
   const handlePublicClose = () => { window.location.href = REDIRECT_URL; };
 
   if (publicViewId) {
-    const item = items.find(i => i.id === publicViewId);
+    const item = items.find(i => i.id?.toString().trim() === publicViewId.trim());
+    
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 select-none">
         <button onClick={handlePublicClose} className="fixed top-6 left-6 z-[100] p-4 bg-white rounded-2xl shadow-xl text-slate-600 border border-slate-200"><X size={24} /></button>
-        {!item ? <div className="text-center"><h2 className="text-2xl font-black text-slate-400 uppercase">ไม่พบข้อมูล</h2></div> : (
+        
+        {item ? (
           <motion.div initial="hidden" animate="visible" variants={modalAnimate} className="w-full max-w-md bg-white rounded-[3rem] shadow-3xl border border-slate-200 overflow-hidden">
             <div className={`p-10 text-white ${item.status === 'Completed' ? 'bg-gradient-to-br from-emerald-600 to-emerald-900' : 'bg-amber-500'}`}>
               <div className="flex items-center gap-4 mb-4"><BrandIdentity size="sm" /><h2 className="text-2xl font-black uppercase ml-2">Tag</h2></div>
@@ -294,6 +300,22 @@ const App: React.FC = () => {
               </div>
             </div>
           </motion.div>
+        ) : isSyncing ? (
+          <div className="text-center">
+            <Loader2 size={48} className="animate-spin text-emerald-600 mx-auto mb-6" />
+            <p className="text-slate-500 font-black uppercase tracking-widest text-[11px]">กำลังค้นหาข้อมูล Asset ใน Cloud Database...</p>
+          </div>
+        ) : (
+          <div className="text-center p-10 bg-white rounded-[3rem] shadow-2xl border border-slate-100 max-w-sm">
+            <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-rose-100">
+              <AlertCircle size={40} />
+            </div>
+            <h2 className="text-2xl font-black text-slate-800 uppercase mb-2">ไม่พบข้อมูล Asset</h2>
+            <p className="text-slate-400 text-[11px] font-bold uppercase leading-relaxed mb-6">Asset ID: {publicViewId}<br/>กรุณาตรวจสอบว่าข้อมูลได้ถูกซิงค์ลง Cloud แล้ว หรือ Asset ID ถูกต้อง</p>
+            <button onClick={() => window.location.reload()} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2">
+              <RefreshCw size={16} /> รีเฟรชเพื่อลองใหม่
+            </button>
+          </div>
         )}
       </div>
     );
@@ -419,7 +441,7 @@ const App: React.FC = () => {
                         <td className="px-10 py-8 text-right flex justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all no-print">
                           <button onClick={() => { setQrItem(it); setIsQrModalOpen(true); }} className="p-3.5 text-emerald-600 bg-emerald-50 rounded-2xl hover:bg-emerald-100 shadow-sm"><QrCode size={18} /></button>
                           <button onClick={() => { setEditingItem({...it}); setIsModalOpen(true); }} className="p-3.5 text-slate-600 bg-slate-50 rounded-2xl hover:bg-slate-100 shadow-sm"><Edit2 size={18} /></button>
-                          {userRole === 'admin' && (<button onClick={() => { if(window.confirm('ยืนยันลบข้อมูล?')) setItems(prev => prev.filter(i => i.id !== it.id)); }} className="p-3.5 text-red-600 bg-rose-50 rounded-2xl hover:bg-rose-100 shadow-sm"><Trash2 size={18} /></button>)}
+                          {userRole === 'admin' && (<button onClick={() => { if(window.confirm('ยืนยันลบข้อมูล?')) setItems(prev => prev.filter(i => String(i.id).trim() !== String(it.id).trim())); }} className="p-3.5 text-red-600 bg-rose-50 rounded-2xl hover:bg-rose-100 shadow-sm"><Trash2 size={18} /></button>)}
                         </td>
                       </motion.tr>
                     ))}
@@ -456,7 +478,7 @@ const App: React.FC = () => {
 
       <AnimatePresence>{isLoginModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-xl">
-          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[3rem] shadow-4xl w-full max-w-sm p-10 space-y-8">
+          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[3rem] shadow-4xl w-full max-sm p-10 space-y-8">
             <div className="text-center space-y-4"><div className="inline-block p-5 bg-emerald-600 text-white rounded-[1.5rem] shadow-2xl"><Lock size={32} /></div><h3 className="text-2xl font-black uppercase">Admin Auth</h3></div>
             <form onSubmit={handleLogin} className="space-y-6">
               <FormInput label="Username" value={loginForm.username} onChange={val => setLoginForm({...loginForm, username: val})} />
