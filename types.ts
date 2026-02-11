@@ -14,6 +14,11 @@ export interface PMItem {
   password?: string; // Column K
   serverPassword?: string; // Column L
   antivirus?: string; // Column M
+  // Lifecycle & Warranty
+  startDate?: string;     // วันเริ่มใช้งาน
+  warrantyExpiry?: string; // วันหมดประกัน
+  spareField?: string;     // ฟิลด์สำรอง / ข้อมูลเพิ่มเติม
+  imageUrl?: string;      // รูปภาพอุปกรณ์ (Base64)
 }
 
 export interface DeptWorkload {

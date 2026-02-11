@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -36,7 +35,13 @@ import {
   Loader2,
   ChevronRight,
   Download,
-  Unlock
+  Unlock,
+  Calendar,
+  ShieldCheck,
+  Info,
+  Camera,
+  Image as ImageIcon,
+  Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { INITIAL_PM_DATA, DEPARTMENTS, DEVICE_STATUS_OPTIONS, COMPUTER_STANDARD_ACTIVITIES, PRINTER_STANDARD_ACTIVITIES } from './constants';
@@ -326,7 +331,11 @@ const App: React.FC = () => {
       computerUser: '', 
       password: '', 
       serverPassword: '', 
-      antivirus: ''
+      antivirus: '',
+      startDate: '',
+      warrantyExpiry: '',
+      spareField: '',
+      imageUrl: ''
     });
     setOtherDeptValue(''); setIsModalOpen(true);
   };
@@ -387,7 +396,9 @@ const App: React.FC = () => {
         const row: any = {
           ID: it.id, Date: formatDateDisplay(it.date), Next_PM: formatDateDisplay(it.nextPmDate),
           Dept: it.department, Device: it.device, Personnel: it.personnel, Status: it.status,
-          Device_Status: it.deviceStatus, Name: it.computerName, Activities: it.activity
+          Device_Status: it.deviceStatus, Name: it.computerName, Activities: it.activity,
+          Start_Date: it.startDate, Warranty_Expiry: it.warrantyExpiry, Additional_Info: it.spareField,
+          Image_Attached: it.imageUrl ? 'Yes' : 'No'
         };
         if (it.device === 'Computer') {
           row.User_ColJ = it.computerUser || '-';
@@ -434,18 +445,28 @@ const App: React.FC = () => {
     } catch (e) {}
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) return alert("File size too large (> 2MB)");
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (editingItem) {
+        setEditingItem({ ...editingItem, imageUrl: reader.result as string });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // --- PUBLIC REPORT READ-ONLY MODE LOGIC ---
   if (publicViewId) {
     const item = items.find(i => i && i.id === publicViewId);
     
-    // Show Loading state if currently syncing and item is not yet available
     if (isSyncing && !item) {
       return (
         <div className="min-h-screen bg-[#f8fafc] flex flex-col items-center justify-center p-4">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="text-center space-y-4"
-          >
+          <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="text-center space-y-4">
             <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mx-auto" />
             <h2 className="text-xl font-black text-slate-800 tracking-tight uppercase">Loading Data / กำลังโหลดข้อมูล...</h2>
             <p className="text-xs font-bold text-slate-400">Please wait while we sync with cloud</p>
@@ -455,19 +476,31 @@ const App: React.FC = () => {
     }
 
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4 pointer-events-none select-none overflow-x-hidden">
         {!item ? (
           <div className="text-center">
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">ไม่พบข้อมูล / Data Not Found</h2>
             <p className="mt-2 text-slate-400 font-medium">Device ID: <span className="font-black">{publicViewId}</span></p>
-            <button onClick={handleBackFromPublicView} className="mt-8 px-8 py-3 bg-indigo-600 text-white rounded-2xl shadow-xl font-black text-xs uppercase transition-all active:scale-95">กลับหน้าหลัก / Back to Home</button>
           </div>
         ) : (
-          <motion.div initial="hidden" animate="visible" variants={modalAnimate} className="w-full max-w-md bg-white rounded-[3rem] shadow-2xl border border-slate-100 overflow-hidden print-visible">
+          <motion.div initial="hidden" animate="visible" variants={modalAnimate} className="w-full max-w-md bg-white rounded-[3rem] shadow-2xl border border-slate-100 overflow-hidden print-visible relative">
+            <div className="absolute top-4 right-4 z-20 px-3 py-1 bg-slate-100/50 backdrop-blur-md rounded-full border border-slate-200/50 flex items-center gap-1.5 no-print">
+               <Eye size={12} className="text-slate-500" />
+               <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Read Only Mode</span>
+            </div>
+
             <div className={`p-10 text-white ${item.status === 'Completed' ? 'bg-gradient-to-br from-indigo-500 to-purple-600' : 'bg-gradient-to-br from-amber-400 to-orange-500'}`}>
               <h2 className="text-4xl font-black leading-tight">PM Report<br/>ใบรายงานบำรุงรักษา</h2>
             </div>
             <div className="p-10 space-y-8">
+              {/* Photo Preview in Report */}
+              {item.imageUrl && (
+                <div className="w-full h-56 rounded-[2rem] overflow-hidden border-4 border-slate-50 shadow-inner group relative">
+                  <img src={item.imageUrl} alt="Device" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                </div>
+              )}
+
               <div className="flex justify-between border-b pb-6">
                 <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Device / อุปกรณ์</p><p className="text-xl font-black text-slate-800">{item.computerName || 'N/A'}</p></div>
                 <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID / รหัส</p><p className="font-mono font-bold text-slate-500">{item.id}</p></div>
@@ -487,12 +520,29 @@ const App: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-6">
                 <div className="bg-slate-50 p-5 rounded-[2rem]"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PM Date / วันที่ทำ</p><p className="text-sm font-black text-slate-700">{formatDateDisplay(item.date)}</p></div>
+                <div className="bg-slate-50 p-5 rounded-[2rem]"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Department / แผนก</p><p className="text-sm font-black text-slate-700 truncate">{item.department || '-'}</p></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
                 <div className="bg-slate-50 p-5 rounded-[2rem]"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">User / ผู้ใช้ (F)</p><p className="text-sm font-black text-slate-700">{item.personnel || '-'}</p></div>
+                {item.device === 'Computer' ? (
+                   <div className="bg-slate-50 p-5 rounded-[2rem]"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">User computer / ผู้ใช้คอมพิวเตอร์ (J)</p><p className="text-sm font-black text-slate-700">{item.computerUser || '-'}</p></div>
+                ) : (
+                  <div className="bg-slate-50 p-5 rounded-[2rem]"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Device Type / ประเภท</p><p className="text-sm font-black text-slate-700">{item.device}</p></div>
+                )}
+              </div>
+
+              {/* Lifecycle and Warranty Section */}
+              <div className="space-y-3">
+                 <div className="flex items-center gap-2"><Calendar size={14} className="text-indigo-500" /><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lifecycle & Warranty / ประกันและอายุการใช้งาน</p></div>
+                 <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Start Date / เริ่มใช้งาน</p><p className="text-[11px] font-black text-slate-700">{formatDateDisplay(item.startDate)}</p></div>
+                    <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Warranty / หมดประกัน</p><p className="text-[11px] font-black text-slate-700">{formatDateDisplay(item.warrantyExpiry)}</p></div>
+                 </div>
               </div>
 
               {item.device === 'Computer' && (
-                <div className="grid grid-cols-2 gap-6">
-                   <div className="bg-slate-50 p-5 rounded-[2rem]"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">User computer / ผู้ใช้คอมพิวเตอร์ (J)</p><p className="text-sm font-black text-slate-700">{item.computerUser || '-'}</p></div>
+                <div className="grid grid-cols-1 gap-6">
                    <div className="bg-slate-50 p-5 rounded-[2rem]"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Antivirus / แอนตี้ (M)</p><p className="text-sm font-black text-slate-700">{item.antivirus || '-'}</p></div>
                 </div>
               )}
@@ -510,9 +560,18 @@ const App: React.FC = () => {
                  </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 no-print">
-                <button onClick={() => window.print()} className="py-4 bg-slate-900 text-white rounded-3xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Print Report / พิมพ์</button>
-                <button onClick={handleBackFromPublicView} className="py-4 bg-slate-100 text-slate-500 rounded-3xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all border border-slate-200">Back / กลับ</button>
+              {/* Spare Field / Additional Info */}
+              {item.spareField && (
+                <div className="p-6 bg-slate-50 rounded-[2rem] border border-dashed border-slate-200">
+                   <div className="flex items-center gap-2 mb-2"><Info size={14} className="text-slate-400" /><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Additional Info / ข้อมูลเพิ่มเติม</p></div>
+                   <p className="text-[12px] font-medium text-slate-600 leading-relaxed italic">"{item.spareField}"</p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 no-print pointer-events-auto">
+                <button onClick={() => window.print()} className="w-full py-4 bg-slate-900 text-white rounded-3xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2">
+                   <Printer size={16} /> Print Report / พิมพ์
+                </button>
               </div>
             </div>
           </motion.div>
@@ -672,7 +731,7 @@ const App: React.FC = () => {
       </main>
 
       {/* Bulk Print Section */}
-      <div id="qr-print-section"><div className="qr-print-grid">{itemsToPrint.map((item) => (
+      <div id="qr-print-section" className="hidden"><div className="qr-print-grid">{itemsToPrint.map((item) => (
             <div key={item.id} className="qr-tag-card">
               <div style={{ marginBottom: '15px' }}><img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`${window.location.origin}${window.location.pathname}?view=${item.id}`)}`} alt="QR" style={{ width: '150px', height: '150px' }} /></div>
               <div style={{ fontSize: '18px', fontWeight: '900', color: '#1e293b' }}>{item.computerName || 'N/A'}</div>
@@ -707,6 +766,38 @@ const App: React.FC = () => {
               <button onClick={() => setIsModalOpen(false)} className="p-2 bg-slate-100 text-slate-400 rounded-xl"><X size={20} /></button>
             </div>
             <form onSubmit={handleSave} className="p-6 md:p-8 overflow-y-auto space-y-6 md:space-y-8 flex-1 pb-20">
+              {/* Photo Upload Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2"><ImageIcon size={18} className="text-indigo-500" /><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Device Photo / รูปภาพอุปกรณ์</label></div>
+                <div className="flex flex-col sm:flex-row gap-6 items-center">
+                   <div className="w-full sm:w-48 h-48 rounded-[2rem] bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden group relative">
+                      {editingItem.imageUrl ? (
+                        <>
+                          <img src={editingItem.imageUrl} alt="Preview" className="w-full h-full object-cover" />
+                          <button type="button" onClick={() => setEditingItem({...editingItem, imageUrl: ''})} className="absolute top-2 right-2 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      ) : (
+                        <div className="text-center p-4">
+                          <Camera size={32} className="mx-auto text-slate-300 mb-2" />
+                          <p className="text-[9px] font-black text-slate-400 uppercase">No Photo</p>
+                        </div>
+                      )}
+                   </div>
+                   <div className="flex-1 w-full space-y-3">
+                      <p className="text-xs font-bold text-slate-500">Attach an equipment photo. It will be embedded in the report.</p>
+                      <label className="flex items-center justify-center gap-2 w-full py-4 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100 font-black text-[10px] uppercase cursor-pointer hover:bg-indigo-100 transition-all shadow-sm">
+                        <Upload size={16} /> <span>{editingItem.imageUrl ? 'Replace / เปลี่ยนรูป' : 'Capture/Upload / ถ่ายรูป'}</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                      </label>
+                      <p className="text-[9px] text-slate-400">Max size 2MB</p>
+                   </div>
+                </div>
+              </div>
+
+              <div className="h-px bg-slate-100 w-full my-2"></div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <FormInput label="Device ID / รหัสอุปกรณ์ (ID)" value={editingItem.id} onChange={val => setEditingItem({...editingItem, id: val})} placeholder="Example: IT-001" />
                 <FormInput label="Date / วันที่บันทึก" type="date" value={toISODate(editingItem.date)} onChange={val => setEditingItem({...editingItem, date: val})} />
@@ -724,12 +815,20 @@ const App: React.FC = () => {
                 <FormSelect label="Device Health / สภาพเครื่อง" value={editingItem.deviceStatus || ''} options={DEVICE_STATUS_OPTIONS} onChange={val => setEditingItem({...editingItem, deviceStatus: val})} />
                 <FormInput label={editingItem.device === 'Computer' ? 'Hostname / ชื่อเครื่อง' : 'Device Name / ชื่ออุปกรณ์'} value={editingItem.computerName} onChange={val => setEditingItem({...editingItem, computerName: val})} />
                 
+                {/* Lifecycle & Warranty Fields */}
+                <FormInput label="Start Date / วันเริ่มใช้งาน" type="date" value={toISODate(editingItem.startDate)} onChange={val => setEditingItem({...editingItem, startDate: val})} />
+                <FormInput label="Warranty Expire / วันหมดประกัน" type="date" value={toISODate(editingItem.warrantyExpiry)} onChange={val => setEditingItem({...editingItem, warrantyExpiry: val})} />
+                
                 {editingItem.device === 'Computer' && (
                   <>
                     <FormInput label="PC Pass / รหัสผ่าน (Col K)" value={editingItem.password || ''} onChange={val => setEditingItem({...editingItem, password: val})} showToggle isLocked={!isAdminSession} onUnlock={handleRequestUnlock} />
                     <FormInput label="Server Pass / รหัสเซิร์ฟฯ (Col L)" value={editingItem.serverPassword || ''} onChange={val => setEditingItem({...editingItem, serverPassword: val})} showToggle isLocked={!isAdminSession} onUnlock={handleRequestUnlock} />
                   </>
                 )}
+
+                <div className="md:col-span-2">
+                   <FormInput label="Additional Info / ข้อมูลเพิ่มเติม (Spare Field)" value={editingItem.spareField || ''} onChange={val => setEditingItem({...editingItem, spareField: val})} placeholder="Future use / Spare field..." />
+                </div>
               </div>
               
               <div className="space-y-4">
@@ -755,7 +854,7 @@ const App: React.FC = () => {
 
       <AnimatePresence>{isQrModalOpen && qrItem && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm no-print">
-          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[2rem] shadow-3xl w-full max-w-sm overflow-hidden p-8 text-center space-y-6">
+          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[2rem] shadow-3xl w-full max-sm overflow-hidden p-8 text-center space-y-6">
             <div className="flex justify-between items-center"><h3 className="text-xl font-black">QR Tag / ป้ายอุปกรณ์</h3><button onClick={() => setIsQrModalOpen(false)} className="p-2 bg-slate-50 text-slate-400 rounded-xl"><X size={20} /></button></div>
             <div className="bg-slate-50 p-6 rounded-[2rem] border inline-block"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`${window.location.origin}${window.location.pathname}?view=${qrItem.id}`)}`} alt="QR" className="w-40 h-40 rounded-xl" /></div>
             <div className="p-4 bg-indigo-50 rounded-2xl text-center"><p className="text-sm font-black text-indigo-700">{qrItem.computerName || 'N/A'}</p><p className="text-[9px] font-bold text-indigo-400 tracking-widest">{qrItem.id}</p></div>
