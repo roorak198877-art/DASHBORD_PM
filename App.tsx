@@ -1,499 +1,415 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  Cell, AreaChart, Area
+  Cell, AreaChart, Area, PieChart, Pie
 } from 'recharts';
 import { 
-  CheckCircle, 
-  Monitor, 
-  TrendingUp, 
-  FileText,
-  Layers,
-  Edit2,
-  Plus,
-  X,
-  Trash2,
-  CheckSquare,
-  Square,
-  RefreshCw,
-  Settings,
-  Wrench,
-  FileSpreadsheet,
-  AlertTriangle,
-  QrCode,
-  Share2,
-  Cpu,
-  Activity,
-  Home,
-  Eye,
-  EyeOff,
-  Lock,
-  LogOut,
-  Printer,
-  PrinterIcon,
-  ShieldAlert,
-  Loader2,
-  ChevronRight,
-  Download,
-  Unlock
+  CheckCircle, Monitor, TrendingUp, FileText, Layers, Edit2, Plus, X, Trash2,
+  CheckSquare, Square, RefreshCw, Settings, Wrench, QrCode, Share2, 
+  Activity, Lock, PrinterIcon, ShieldAlert, Loader2, ChevronRight, 
+  Download, Camera, Image as ImageIcon, Upload, Database, Globe, Eye, EyeOff,
+  AlertCircle, Calendar, Info, ArrowLeft, ShieldCheck, MapPin, Tag, Cpu, Hash, Key,
+  Menu, Server, Search, WifiOff, Copy, Link as LinkIcon, ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { INITIAL_PM_DATA, DEPARTMENTS, DEVICE_STATUS_OPTIONS, COMPUTER_STANDARD_ACTIVITIES, PRINTER_STANDARD_ACTIVITIES } from './constants';
+import { INITIAL_PM_DATA, DEPARTMENTS, COMPUTER_STANDARD_ACTIVITIES, PRINTER_STANDARD_ACTIVITIES } from './constants';
 import { PMItem } from './types';
-import * as XLSX from 'xlsx';
 
-// Modern Color Palette
-const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#f43f5e'];
+// --- CONFIGURATION ---
+const COMPANY_NAME = 'TCITRENDGROUP'; 
+const LOGO_TEXT = 'T.T.g';
+const DEFAULT_GAS_URL = ''; 
+const SECURITY_PIN = '1234';
+// Change this URL to your desired external destination
+const EXIT_URL = 'https://tcitrendgroup.com'; 
 
-// Bouncy Animation Config
+const CHART_COLORS = ['#065f46', '#0f172a', '#059669', '#1e293b', '#10b981', '#334155', '#34d399', '#064e3b'];
 const bouncySpring = { type: "spring" as const, stiffness: 400, damping: 25 };
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1 } }
-};
-
-const bouncyItem = {
-  hidden: { opacity: 0, scale: 0.8, y: 30 },
-  show: { opacity: 1, scale: 1, y: 0, transition: bouncySpring }
-};
-
+const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
+const bouncyItem = { hidden: { opacity: 0, scale: 0.8, y: 30 }, show: { opacity: 1, scale: 1, y: 0, transition: bouncySpring } };
 const modalAnimate = {
   hidden: { opacity: 0, scale: 0.9, y: 20 },
   visible: { opacity: 1, scale: 1, y: 0, transition: bouncySpring },
   exit: { opacity: 0, scale: 0.9, y: 20, transition: { duration: 0.2 } }
 };
 
-// Security PIN
-const SECURITY_PIN = '1234';
+// --- HELPER FUNCTIONS ---
+const normalizeId = (id: any): string => {
+  if (!id) return '';
+  return String(id).replace(/[\s\u00A0\u180E\u200B\u200C\u200D\u2060\uFEFF]/g, '').toLowerCase().trim();
+};
 
-/**
- * Helper: Convert date string to Thai locale 'DD Month YYYY'
- */
 const formatDateDisplay = (dateStr?: any) => {
   if (!dateStr || dateStr === 'undefined' || dateStr === '') return '-';
   try {
-    let d: Date;
-    const str = String(dateStr);
-    if (str.includes('T')) {
-      const datePart = str.split('T')[0];
-      const [year, month, day] = datePart.split('-').map(Number);
-      d = new Date(year, month - 1, day);
-    } else if (str.includes('-')) {
-      const [year, month, day] = str.split('-').map(Number);
-      d = new Date(year, month - 1, day);
-    } else if (str.includes('/')) {
-      const [day, month, year] = str.split('/').map(Number);
-      d = new Date(year, month - 1, day);
-    } else {
-      d = new Date(str);
-    }
-
-    if (isNaN(d.getTime())) return str;
-
-    return d.toLocaleDateString('th-TH', { 
-      day: 'numeric', 
-      month: 'long', 
-      year: 'numeric' 
-    });
-  } catch (e) {
-    return String(dateStr);
-  }
+    return String(dateStr).split('T')[0];
+  } catch (e) { return String(dateStr); }
 };
 
 const toISODate = (dateStr?: any) => {
   if (!dateStr || dateStr === 'undefined') return '';
   try {
-    const str = String(dateStr);
-    if (str.includes('T')) return str.split('T')[0];
-    if (str.includes('-')) return str;
-    const parts = str.split('/');
-    if (parts.length === 3) {
-      return `${parts[2]}-${String(parts[1]).padStart(2, '0')}-${String(parts[0]).padStart(2, '0')}`;
-    }
-    const d = new Date(str);
-    return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
-  } catch (e) {
-    return '';
-  }
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Bangkok' }).format(d);
+  } catch (e) { return ''; }
 };
 
-const BouncyIcon = ({ icon: Icon = Wrench, size = 20, className = "text-indigo-500" }) => (
-  <motion.div
-    animate={{ y: [0, -6, 0], scale: [1, 1.15, 1], rotate: [0, 5, -5, 0] }}
-    transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
-    className={className}
-  >
-    <Icon size={size} />
-  </motion.div>
-);
+const calculateNextPM = (currentDate: string, device: 'Computer' | 'Printer'): string => {
+  if (!currentDate) return '';
+  const d = new Date(currentDate);
+  if (isNaN(d.getTime())) return '';
+  const months = device === 'Computer' ? 6 : 2;
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString();
+};
 
-const AppLogo: React.FC<{ size?: number }> = ({ size = 50 }) => (
-  <div className="relative flex items-center justify-center overflow-visible" style={{ width: size, height: size }}>
-    <motion.div animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: "linear" }} className="absolute text-indigo-600 z-20"><Settings size={size * 0.9} /></motion.div>
-    <motion.div animate={{ rotate: -360 }} transition={{ duration: 6, repeat: Infinity, ease: "linear" }} className="absolute text-indigo-400 translate-x-4 -translate-y-3 z-10"><Settings size={size * 0.6} /></motion.div>
+const SpinningGears = () => (
+  <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 opacity-10">
+    <motion.div 
+      animate={{ rotate: 360, y: [0, -10, 0] }} 
+      transition={{ rotate: { repeat: Infinity, duration: 20, ease: "linear" }, y: { repeat: Infinity, duration: 4, ease: "easeInOut" } }}
+      className="absolute -top-10 -right-10 text-emerald-900"
+    >
+      <Settings size={200} strokeWidth={1} />
+    </motion.div>
   </div>
 );
 
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbz33ZEnFiGga00KxZ452_nsgVWGkOsO351GBmEK1fJziXSYzVBFTp03gBbofp3-J7ATMQ/exec';
+const BrandIdentity: React.FC<{ size?: 'sm' | 'lg' }> = ({ size = 'lg' }) => {
+  const isLg = size === 'lg';
+  return (
+    <div className="flex items-center gap-3 relative z-10">
+      <div className="flex items-center justify-center rounded-lg bg-emerald-600 shadow-sm border border-emerald-500" style={{ width: isLg ? 35 : 30, height: isLg ? 35 : 30 }}>
+        <span className="font-black text-[12px] text-white tracking-tighter">{LOGO_TEXT}</span>
+      </div>
+      <div className="flex flex-col text-left">
+        <h1 className={`${isLg ? 'text-lg' : 'text-sm'} font-black text-white tracking-tighter leading-none uppercase`}>{COMPANY_NAME}</h1>
+        {isLg && <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mt-1">PM Cloud System / ระบบคลาวด์</p>}
+      </div>
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'table'>('dashboard');
   const [pmModule, setPmModule] = useState<'computer' | 'printer'>('computer');
-  const [publicViewId, setPublicViewId] = useState<string | null>(null);
-  const dashboardRef = useRef<HTMLDivElement>(null);
-  
+  const [publicViewId, setPublicViewId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('view') || null;
+  });
+
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [userRole, setUserRole] = useState<'admin' | 'general'>('general');
-  const [isAdminSession, setIsAdminSession] = useState(false); 
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
-
+  
   const [items, setItems] = useState<PMItem[]>(() => {
     try {
       const saved = localStorage.getItem('pm_dashboard_data');
-      if (!saved) return INITIAL_PM_DATA;
-      const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed.filter(i => i !== null) : INITIAL_PM_DATA;
-    } catch (e) {
-      console.error("Failed to parse items from localStorage", e);
-      return INITIAL_PM_DATA;
-    }
+      return saved ? JSON.parse(saved) : INITIAL_PM_DATA;
+    } catch (e) { return INITIAL_PM_DATA; }
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [isDbSettingsOpen, setIsDbSettingsOpen] = useState(false);
   const [qrItem, setQrItem] = useState<PMItem | null>(null);
   const [editingItem, setEditingItem] = useState<PMItem | null>(null);
-  const [otherDeptValue, setOtherDeptValue] = useState('');
   const [sheetUrl, setSheetUrl] = useState(localStorage.getItem('pm_sheet_url') || DEFAULT_GAS_URL);
+  
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
-  const [itemsToPrint, setItemsToPrint] = useState<PMItem[]>([]);
+  const [isCloudConnected, setIsCloudConnected] = useState<boolean | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const publicItem = useMemo(() => {
+    if (!publicViewId) return null;
+    const target = normalizeId(publicViewId);
+    return items.find(i => i && normalizeId(i.id) === target);
+  }, [items, publicViewId]);
 
   useEffect(() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const viewId = params.get('view');
-      if (viewId) setPublicViewId(viewId);
-    } catch (e) {
-      console.error("URL Search Params error", e);
-    }
-  }, []);
-
-  useEffect(() => { if (sheetUrl) { fetchFromSheet(true); } }, [sheetUrl]);
-  
-  useEffect(() => { 
-    try {
-      localStorage.setItem('pm_dashboard_data', JSON.stringify(items)); 
-    } catch (e) {
-      console.error("LocalStorage save error", e);
-    }
-  }, [items]);
-
-  useEffect(() => { 
-    if (sheetUrl) {
-      try {
-        localStorage.setItem('pm_sheet_url', sheetUrl); 
-      } catch (e) {
-        console.error("LocalStorage save error", e);
+    const fetchOnMount = async () => {
+      setIsLoading(true);
+      if (sheetUrl && sheetUrl.startsWith('http')) {
+        await fetchFromSheet(true);
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 800)); 
       }
-    }
+      setIsLoading(false);
+    };
+    fetchOnMount();
   }, [sheetUrl]);
+
+  useEffect(() => { 
+    if (publicViewId) {
+      window.history.pushState(null, '', window.location.href);
+      const handlePopState = () => window.history.pushState(null, '', window.location.href);
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
+    }
+  }, [publicViewId]);
+
+  useEffect(() => { 
+    localStorage.setItem('pm_dashboard_data', JSON.stringify(items)); 
+  }, [items]);
 
   const filteredItems = useMemo(() => {
     const type = pmModule === 'computer' ? 'Computer' : 'Printer';
     return items.filter(item => item && item.device === type);
   }, [items, pmModule]);
 
-  const getMaintenanceAlert = (dateStr?: any) => {
-    if (!dateStr || dateStr === 'undefined' || dateStr === null) return null;
-    try {
-      const targetStr = toISODate(dateStr);
-      if (!targetStr) return null;
-      const target = new Date(targetStr);
-      if (isNaN(target.getTime())) return null;
-      
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-      target.setHours(0, 0, 0, 0);
-      
-      const diffDays = (target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
-      if (diffDays < 0) return 'overdue';
-      if (diffDays <= 15) return 'near';
-    } catch (e) {
-      return null;
-    }
-    return null;
-  };
-
   const stats = useMemo(() => {
     const total = filteredItems.length;
-    const completed = filteredItems.filter(i => i && i.status === 'Completed').length;
+    const completed = filteredItems.filter(i => i.status === 'Completed').length;
+    const inProgress = filteredItems.filter(i => i.status === 'In Progress').length;
+    const pending = filteredItems.filter(i => i.status === 'Pending').length;
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
     
     const deptMap: Record<string, number> = {};
-    filteredItems.forEach(item => { if(item && item.department) deptMap[String(item.department)] = (deptMap[String(item.department)] || 0) + 1; });
+    filteredItems.forEach(item => { if(item.department) deptMap[item.department] = (deptMap[item.department] || 0) + 1; });
     const deptStats = Object.entries(deptMap).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
     
     const trendMap: Record<string, number> = {};
-    filteredItems.forEach(item => { if(item && item.date) trendMap[String(item.date)] = (trendMap[String(item.date)] || 0) + 1; });
+    filteredItems.forEach(item => { if(item.date) { const d = toISODate(item.date); if(d) trendMap[d] = (trendMap[d] || 0) + 1; } });
     const dailyTrend = Object.entries(trendMap).map(([date, count]) => ({ date: formatDateDisplay(date), count })).sort((a, b) => a.date.localeCompare(b.date));
     
-    let overdueCount = 0, nearDueCount = 0, brokenCount = 0;
-    filteredItems.forEach(item => {
-      if (item) {
-        if (item.nextPmDate) {
-          const alert = getMaintenanceAlert(item.nextPmDate);
-          if (alert === 'overdue') overdueCount++; else if (alert === 'near') nearDueCount++;
-        }
-        if (item.deviceStatus && String(item.deviceStatus).includes('Broken')) brokenCount++;
-      }
-    });
-    return { total, completionRate, deptStats, dailyTrend, overdueCount, nearDueCount, brokenCount };
-  }, [filteredItems]);
+    const statusStats = [
+      { name: 'Done / เสร็จแล้ว', value: completed },
+      { name: 'Doing / กำลังทำ', value: inProgress },
+      { name: 'Pending / รอทำ', value: pending }
+    ];
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (loginForm.username === 'admin' && loginForm.password === 'tci@1234') {
-      setUserRole('admin'); setIsAdminSession(false); setIsLoginModalOpen(false); setLoginForm({ username: '', password: '' }); setLoginError('');
-      setSyncMessage("ยินดีต้อนรับ Admin / Welcome Admin"); setTimeout(() => setSyncMessage(null), 3000);
-    } else { setLoginError('Login ไม่ถูกต้อง / Invalid Login'); }
-  };
-
-  const handleLogout = () => {
-    setUserRole('general'); setIsAdminSession(false);
-    setSyncMessage("ออกจากระบบแล้ว / Logged Out"); setTimeout(() => setSyncMessage(null), 3000);
-  };
-
-  const handleRequestUnlock = () => {
-    const pin = window.prompt("กรุณาใส่รหัส Admin (1234) / Please Enter Admin PIN:");
-    if (pin === SECURITY_PIN) {
-      setIsAdminSession(true); setSyncMessage("ปลดล็อกแล้ว / Unlocked"); 
-      setTimeout(() => setSyncMessage(null), 3000);
-    } else if (pin !== null) { alert("รหัส PIN ไม่ถูกต้อง / Invalid PIN"); }
-  };
-
-  const handleEdit = (item: PMItem) => {
-    if (!item) return;
-    if (userRole !== 'admin') return alert('ต้องใช้สิทธิ์ Admin / Admin access required');
-    setEditingItem({ ...item });
-    setOtherDeptValue(DEPARTMENTS.includes(item.department) ? '' : item.department);
-    setIsModalOpen(true);
-  };
-
-  const handleDelete = (id: string) => {
-    if (!id) return;
-    if (userRole !== 'admin') return alert('ต้องใช้สิทธิ์ Admin / Admin access required');
-    if (window.confirm('ยืนยันการลบข้อมูล? / Are you sure you want to delete?')) {
-      setItems(prev => prev.filter(i => i && i.id !== id));
-      setSyncMessage("ลบข้อมูลแล้ว / Deleted"); setTimeout(() => setSyncMessage(null), 3000);
-    }
-  };
-
-  const handleShowQr = (item: PMItem) => {
-    if (!item) return;
-    setQrItem(item);
-    setIsQrModalOpen(true);
-  };
+    return { total, completionRate, deptStats, dailyTrend, statusStats };
+  }, [filteredItems, items]);
 
   const pushToCloud = async (item: PMItem) => {
-    if (!sheetUrl || !item) return;
+    if (!sheetUrl) return;
     try {
-      await fetch(sheetUrl, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(item),
+      setSyncMessage("Cloud Syncing / กำลังซิงค์...");
+      const values = [
+        item.id, item.date, item.nextPmDate || '', item.department, item.device,
+        item.personnel || '', item.status || 'Pending', item.activity || '', item.computerName || '',
+        item.computerUser || '', item.password || '', item.serverPassword || '', item.antivirus || '',
+        item.imageUrl || '', item.technician || '', item.startDate || '', item.warrantyExpiry || '',
+        item.notes || '', item.assetName || '', item.modelSpec || '', item.serialNumber || '',
+        item.location || ''
+      ];
+      await fetch(sheetUrl, { 
+        method: 'POST', 
+        mode: 'no-cors', 
+        headers: { 'Content-Type': 'text/plain' }, 
+        body: JSON.stringify({ values }) 
       });
-    } catch (err) { console.error('Cloud Sync Error:', err); }
+      setSyncMessage("Sync Success / บันทึกสำเร็จ");
+      setIsCloudConnected(true);
+    } catch (err) { 
+      setSyncMessage("Sync Failed / เชื่อมต่อล้มเหลว"); 
+      setIsCloudConnected(false);
+    } finally { setTimeout(() => setSyncMessage(null), 3000); }
   };
 
-  const handleAddNew = () => {
-    if (userRole !== 'admin') return alert('ต้องใช้สิทธิ์ Admin / Admin access required');
-    const deviceType = pmModule === 'computer' ? 'Computer' : 'Printer';
-    setEditingItem({
-      id: '', 
-      date: new Date().toISOString().split('T')[0], 
-      department: DEPARTMENTS[0], 
-      device: deviceType, 
-      personnel: '', 
-      status: 'Pending', 
-      deviceStatus: DEVICE_STATUS_OPTIONS[0],
-      activity: '', 
-      computerName: '', 
-      computerUser: '', 
-      password: '', 
-      serverPassword: '', 
-      antivirus: ''
-    });
-    setOtherDeptValue(''); setIsModalOpen(true);
+  const fetchFromSheet = async (silent = false) => {
+    if (!sheetUrl) { setIsSyncing(false); return; } 
+    setIsSyncing(true);
+    try {
+      const res = await fetch(`${sheetUrl}?_t=${Date.now()}`);
+      if (res.ok) { 
+        const data = await res.json(); 
+        if (Array.isArray(data)) {
+          const mapped: PMItem[] = data.map(row => {
+            if (!row || !row[0]) return null;
+            return {
+              id: String(row[0]).trim(), date: row[1], nextPmDate: row[2], department: row[3],
+              device: row[4], personnel: row[5], status: row[6], activity: row[7],
+              computerName: row[8], computerUser: row[9], password: row[10], serverPassword: row[11],
+              antivirus: row[12], imageUrl: row[13], technician: row[14], startDate: row[15] || '',
+              warrantyExpiry: row[16] || '', notes: row[17] || '', assetName: row[18] || '',
+              modelSpec: row[19] || '', serialNumber: row[20] || '', location: row[21] || '',
+              deviceStatus: row[7]?.includes('Broken') ? 'Broken' : 'Ready'
+            };
+          }).filter(i => i !== null) as PMItem[];
+          setItems(mapped); 
+          setIsCloudConnected(true);
+          if (!silent) setSyncMessage('Data Synced / ซิงค์ข้อมูลสำเร็จ');
+        }
+      }
+    } catch (err) { setIsCloudConnected(false); } finally { 
+      setIsSyncing(false); 
+      setTimeout(() => setSyncMessage(null), 2000); 
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingItem || userRole !== 'admin') return;
-    if (!editingItem.id) return alert('กรุณากรอกรหัสอุปกรณ์ / Please enter device ID');
-    
-    let finalItem = { ...editingItem };
-    if (finalItem.department === 'Others / อื่นๆ') finalItem.department = otherDeptValue || 'Others';
+    if (!editingItem) return;
+    if (!editingItem.id) return alert('Asset ID required / กรุณาระบุรหัสทรัพย์สิน');
+    let finalItem = { ...editingItem, id: String(editingItem.id).trim() };
     if (finalItem.status === 'Completed') {
-      const baseDateStr = toISODate(finalItem.date);
-      if (baseDateStr) {
-        const nextDate = new Date(baseDateStr);
-        if (!isNaN(nextDate.getTime())) {
-          nextDate.setDate(nextDate.getDate() + (finalItem.device === 'Computer' ? 180 : 60));
-          try {
-            finalItem.nextPmDate = nextDate.toISOString().split('T')[0];
-          } catch (err) {
-            console.error("Date formatting error:", err);
-            finalItem.nextPmDate = undefined;
-          }
-        }
-      }
-    }
+      finalItem.nextPmDate = calculateNextPM(finalItem.date, finalItem.device);
+    } else { finalItem.nextPmDate = ''; }
+    
     setItems(prev => {
-      const exists = prev.find(i => i && i.id === finalItem.id);
-      return exists ? prev.map(i => (i && i.id === finalItem.id) ? finalItem : i) : [...prev, finalItem];
+      const targetId = normalizeId(finalItem.id);
+      const exists = prev.find(i => normalizeId(i.id) === targetId);
+      return exists ? prev.map(i => normalizeId(i.id) === targetId ? finalItem : i) : [...prev, finalItem];
     });
-    setIsModalOpen(false); setEditingItem(null); setSyncMessage("บันทึกแล้ว / Saved"); setTimeout(() => setSyncMessage(null), 3000);
+    
+    setIsModalOpen(false); 
+    setEditingItem(null); 
     await pushToCloud(finalItem);
   };
 
-  const fetchFromSheet = async (silent = false) => {
-    if (!sheetUrl) return; setIsSyncing(true);
-    try {
-      const response = await fetch(`${sheetUrl}?_t=${Date.now()}`);
-      if (!response.ok) throw new Error("Fetch failed");
-      const data = await response.json();
-      if (Array.isArray(data)) { 
-        setItems(data.filter(i => i !== null)); 
-        if (!silent) setSyncMessage('อัปเดตข้อมูลแล้ว / Data Updated'); 
-      }
-    } catch (err) { 
-      console.error(err); 
-      if (!silent) setSyncMessage('การอัปเดตล้มเหลว / Update Failed');
-    } finally { 
-      setIsSyncing(false); 
-      setTimeout(() => setSyncMessage(null), 3000); 
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginForm.username === 'admin' && loginForm.password === 'tci@1234') {
+      setUserRole('admin'); 
+      setIsLoginModalOpen(false); 
+    } else { setLoginError('Login Failed / ข้อมูลไม่ถูกต้อง'); }
+  };
+
+  const handlePinSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pinInput === SECURITY_PIN) {
+      setIsUnlocked(true);
+      setPinError(false);
+    } else {
+      setPinError(true);
+      setPinInput('');
     }
   };
 
-  const exportToExcel = () => {
-    try {
-      setSyncMessage("กำลังส่งออก... / Exporting...");
-      const data = filteredItems.map(it => {
-        const row: any = {
-          ID: it.id, Date: formatDateDisplay(it.date), Next_PM: formatDateDisplay(it.nextPmDate),
-          Dept: it.department, Device: it.device, Personnel: it.personnel, Status: it.status,
-          Device_Status: it.deviceStatus, Name: it.computerName, Activities: it.activity
-        };
-        if (it.device === 'Computer') {
-          row.User_ColJ = it.computerUser || '-';
-          row.Pass_K = it.password; row.Pass_L = it.serverPassword;
-          row.AV_M = it.antivirus || '-';
-        }
-        return row;
-      });
-      const ws = XLSX.utils.json_to_sheet(data);
-      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "PM_Report");
-      XLSX.writeFile(wb, `IT_PM_REPORT_${new Date().toISOString().split('T')[0]}.xlsx`);
-      setTimeout(() => setSyncMessage(null), 2000);
-    } catch (e) {
-      console.error("Excel Export Error", e);
-      setSyncMessage("ส่งออกล้มเหลว / Export Failed");
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && editingItem) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditingItem({ ...editingItem, imageUrl: reader.result as string });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const handlePrintSingle = (item: PMItem) => { if(!item) return; setItemsToPrint([item]); setTimeout(() => { window.print(); setItemsToPrint([]); }, 500); };
-  const handlePrintAll = () => { if (filteredItems.length === 0) return; setItemsToPrint(filteredItems); setTimeout(() => { window.print(); setItemsToPrint([]); }, 500); };
-  const resetFiltersAndGoHome = () => { setActiveTab('dashboard'); setPmModule('computer'); };
+  const appBaseUrl = window.location.href.split('?')[0];
 
-  const getDeviceStatusColor = (status?: string) => {
-    if (!status) return 'bg-slate-100 text-slate-500 border-slate-200';
-    const s = String(status);
-    if (s.includes('In Use')) return 'bg-emerald-100 text-emerald-600 border-emerald-200';
-    if (s.includes('Standby')) return 'bg-blue-100 text-blue-600 border-blue-200';
-    if (s.includes('Broken')) return 'bg-red-100 text-red-600 border-red-200';
-    return 'bg-slate-100 text-slate-500 border-slate-200';
+  const handleCopyTestLink = (assetId: string) => {
+    const fullUrl = `${appBaseUrl}?view=${assetId}`;
+    navigator.clipboard.writeText(fullUrl).then(() => {
+      setSyncMessage("Link Copied / คัดลอกลิงก์แล้ว!");
+      setTimeout(() => setSyncMessage(null), 3000);
+    });
   };
 
-  const getPMStatusColor = (status?: string) => {
-    if (status === 'Completed') return 'bg-emerald-500 text-white border-emerald-600';
-    if (status === 'In Progress') return 'bg-amber-400 text-white border-amber-500';
-    return 'bg-slate-200 text-slate-600 border-slate-300';
-  };
-
-  const handleBackFromPublicView = () => {
-    setPublicViewId(null);
-    setActiveTab('table');
-    try {
-      const newUrl = window.location.origin + window.location.pathname;
-      window.history.replaceState({}, document.title, newUrl);
-    } catch (e) {}
-  };
-
+  // --- PUBLIC ASSET VIEW (Scan Result) ---
   if (publicViewId) {
-    const item = items.find(i => i && i.id === publicViewId);
+    if (isLoading) {
+      return (
+        <div className="min-h-screen bg-[#f1f5f9] flex flex-col items-center justify-center p-4">
+          <Loader2 size={40} className="text-emerald-600 animate-spin mb-4" />
+          <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Verifying Data / กำลังตรวจสอบข้อมูล...</p>
+        </div>
+      );
+    }
+
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4">
-        {!item ? (
-          <div className="text-center">
-            <h2 className="text-2xl font-black">ไม่พบข้อมูล / Data Not Found</h2>
-            <button onClick={handleBackFromPublicView} className="mt-6 px-8 py-3 bg-indigo-600 text-white rounded-2xl shadow-xl">กลับหน้าหลัก / Back to Home</button>
-          </div>
-        ) : (
-          <motion.div initial="hidden" animate="visible" variants={modalAnimate} className="w-full max-w-md bg-white rounded-[3rem] shadow-2xl border border-slate-100 overflow-hidden print-visible">
-            <div className={`p-10 text-white ${item.status === 'Completed' ? 'bg-gradient-to-br from-indigo-500 to-purple-600' : 'bg-gradient-to-br from-amber-400 to-orange-500'}`}>
-              <h2 className="text-4xl font-black leading-tight">PM Report<br/>ใบรายงานบำรุงรักษา</h2>
+      <div className="min-h-screen bg-[#f1f5f9] flex items-center justify-center p-4 relative overflow-hidden">
+        <SpinningGears />
+        {publicItem ? (
+          <motion.div initial="hidden" animate="visible" variants={modalAnimate} className="w-full max-w-md bg-white rounded-[3rem] shadow-4xl border border-slate-200 overflow-hidden relative z-10 text-left">
+            <div className={`p-10 text-white ${publicItem.status === 'Completed' ? 'bg-gradient-to-br from-emerald-600 to-emerald-900' : 'bg-amber-500'}`}>
+              <div className="flex items-center gap-4 mb-4">
+                <ShieldCheck size={28} className="text-white" />
+                <div className="flex-1">
+                  <h2 className="text-xl font-black uppercase tracking-tight">Verified Asset / ข้อมูลทรัพย์สิน</h2>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">{COMPANY_NAME}</p>
+                </div>
+              </div>
             </div>
-            <div className="p-10 space-y-8">
-              <div className="flex justify-between border-b pb-6">
-                <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Device / อุปกรณ์</p><p className="text-xl font-black text-slate-800">{item.computerName || 'N/A'}</p></div>
-                <div className="text-right"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID / รหัส</p><p className="font-mono font-bold text-slate-500">{item.id}</p></div>
+            
+            <div className="p-8 space-y-6 overflow-y-auto max-h-[72vh] no-scrollbar pb-10">
+              {publicItem.imageUrl && (
+                <div className="relative">
+                  <img src={publicItem.imageUrl} className="w-full h-56 object-cover rounded-3xl border-4 border-slate-50 shadow-xl" alt="Proof" />
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 gap-4 text-left">
+                <DataField label="Asset ID / รหัสทรัพย์สิน (A)" value={publicItem.id} mono />
+                <DataField label="PM Status / สถานะ (G)" value={publicItem.status === 'Completed' ? 'Done / เสร็จสิ้น' : publicItem.status === 'In Progress' ? 'Doing / กำลังทำ' : 'Pending / รอทำ'} />
+                <DataField label="Last PM / ทำล่าสุด (B)" value={formatDateDisplay(publicItem.date)} />
+                <DataField label="Next PM / ครั้งถัดไป (C)" value={formatDateDisplay(publicItem.nextPmDate)} />
+                <DataField label="Dept / แผนก (D)" value={publicItem.department} />
+                <DataField label="User / ผู้ใช้งาน (F)" value={publicItem.personnel || '-'} />
+                <DataField label="Hostname / ชื่อเครื่อง (I)" value={publicItem.computerName || '-'} />
+                <DataField label="Tech / ช่างผู้ดูแล (O)" value={publicItem.technician || '-'} />
+                
+                <DataField label="Login User / ชื่อผู้ใช้ (J)" value={isUnlocked ? (publicItem.computerUser || '-') : '********'} mono={isUnlocked} icon={isUnlocked ? <Eye size={12}/> : <EyeOff size={12}/>} />
+                <DataField label="Password / รหัสผ่าน (K)" value={isUnlocked ? (publicItem.password || '-') : '********'} mono={isUnlocked} icon={isUnlocked ? <Eye size={12}/> : <EyeOff size={12}/>} />
+                <DataField label="Server Pass / รหัสเซิร์ฟเวอร์ (L)" value={isUnlocked ? (publicItem.serverPassword || '-') : '********'} mono={isUnlocked} icon={isUnlocked ? <Eye size={12}/> : <EyeOff size={12}/>} />
+                <DataField label="Antivirus / แอนตี้ไวรัส (M)" value={isUnlocked ? (publicItem.antivirus || '-') : '********'} mono={isUnlocked} icon={isUnlocked ? <Eye size={12}/> : <EyeOff size={12}/>} />
+              </div>
+
+              {!isUnlocked && (
+                <form onSubmit={handlePinSubmit} className="p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100 flex flex-col gap-5 shadow-inner">
+                  <div className="flex items-center gap-3">
+                    <Lock size={16} className="text-emerald-600" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-left">Unlock Sensitive Data / ใส่ PIN เพื่อดูรหัสผ่าน</span>
+                  </div>
+                  <div className="flex gap-3">
+                    <input type="password" maxLength={4} value={pinInput} onChange={(e) => setPinInput(e.target.value)} placeholder="****" className={`flex-1 px-5 py-4 rounded-2xl border-2 text-center font-black tracking-[1.2em] outline-none transition-all ${pinError ? 'border-rose-500 bg-rose-50' : 'border-slate-200 focus:border-emerald-600'}`} />
+                    <button type="submit" className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black text-[11px] uppercase shadow-lg active:scale-95 transition-all">Unlock / ปลดล็อก</button>
+                  </div>
+                </form>
+              )}
+
+              <div className="p-7 bg-slate-50 rounded-[2.5rem] border border-slate-100 text-left">
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">PM Records / บันทึกการทำ (H)</p>
+                <div className="space-y-3">
+                  {String(publicItem.activity || '').split(' | ').filter(x => x).map((act, i) => (
+                    <p key={i} className="text-[11px] font-bold text-slate-700 flex items-start gap-3 leading-relaxed text-left">
+                      <CheckCircle size={14} className="text-emerald-500 mt-0.5" /> {act}
+                    </p>
+                  ))}
+                </div>
               </div>
               
-              <div className="space-y-3">
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">System Status / สถานะระบบ</p>
-                 <div className="grid grid-cols-2 gap-3">
-                    <div className={`p-4 rounded-2xl border text-center font-black text-[10px] uppercase ${getPMStatusColor(item.status)}`}>
-                       PM: {item.status || 'Pending'}
-                    </div>
-                    <div className={`p-4 rounded-2xl border text-center font-black text-[10px] uppercase ${getDeviceStatusColor(item.deviceStatus)}`}>
-                       Health: {String(item.deviceStatus || '').split(' / ')[0] || 'Ready'}
-                    </div>
-                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
-                <div className="bg-slate-50 p-5 rounded-[2rem]"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PM Date / วันที่ทำ</p><p className="text-sm font-black text-slate-700">{formatDateDisplay(item.date)}</p></div>
-                <div className="bg-slate-50 p-5 rounded-[2rem]"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">User / ผู้ใช้ (F)</p><p className="text-sm font-black text-slate-700">{item.personnel || '-'}</p></div>
-              </div>
-
-              {item.device === 'Computer' && (
-                <div className="grid grid-cols-2 gap-6">
-                   <div className="bg-slate-50 p-5 rounded-[2rem]"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">User computer / ผู้ใช้คอมพิวเตอร์ (J)</p><p className="text-sm font-black text-slate-700">{item.computerUser || '-'}</p></div>
-                   <div className="bg-slate-50 p-5 rounded-[2rem]"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Antivirus / แอนตี้ (M)</p><p className="text-sm font-black text-slate-700">{item.antivirus || '-'}</p></div>
-                </div>
-              )}
-
-              {item.nextPmDate && (
-                <div className={`p-5 rounded-[2rem] border-2 ${getMaintenanceAlert(item.nextPmDate) === 'overdue' ? 'bg-red-50 border-red-200' : 'bg-indigo-50 border-indigo-100'}`}>
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Next Schedule / ครั้งถัดไป (C)</p><p className={`text-sm font-black ${getMaintenanceAlert(item.nextPmDate) === 'overdue' ? 'text-red-600' : 'text-indigo-600'}`}>{formatDateDisplay(item.nextPmDate)}</p>
-                </div>
-              )}
-
-              <div className="space-y-4">
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Activities / กิจกรรม</p>
-                 <div className="space-y-2">
-                    {item.activity && String(item.activity).split(' | ').filter(a => a).map((a, i) => (<div key={i} className="flex gap-3 items-center text-[11px] text-slate-600 font-bold bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100/50"><CheckCircle size={14} className="text-emerald-500" /><span>{a}</span></div>))}
-                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 no-print">
-                <button onClick={() => window.print()} className="py-4 bg-slate-900 text-white rounded-3xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Print Report / พิมพ์</button>
-                <button onClick={handleBackFromPublicView} className="py-4 bg-slate-100 text-slate-500 rounded-3xl font-black text-[10px] uppercase tracking-widest active:scale-95 transition-all border border-slate-200">Back / กลับ</button>
-              </div>
+              <button 
+                onClick={() => { window.location.href = EXIT_URL; }} 
+                className="w-full py-5 bg-slate-800 text-white rounded-[2rem] font-black text-[12px] uppercase shadow-xl hover:bg-black transition-all flex items-center justify-center gap-3 active:scale-95 mt-6 mb-2"
+              >
+                <ExternalLink size={18} /> Company Web / กลับสู่หน้าหลักบริษัท
+              </button>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div initial="hidden" animate="visible" variants={modalAnimate} className="text-center p-12 bg-white rounded-[4rem] shadow-5xl max-w-sm relative z-10 border border-slate-100">
+            <AlertCircle size={72} className="text-rose-500 mx-auto mb-10" />
+            <h2 className="text-2xl font-black text-slate-800 mb-4 uppercase tracking-tighter">Asset Not Found / ไม่พบข้อมูล</h2>
+            <p className="text-slate-400 text-[13px] font-bold leading-relaxed mb-10 uppercase tracking-tight">รหัสที่สแกนไม่ตรงกับฐานข้อมูล</p>
+            <div className="p-6 bg-slate-50 rounded-[2.5rem] border border-slate-100 mb-10 text-left space-y-4">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scanned ID:</p>
+               <p className="text-[16px] font-mono font-black text-emerald-600 truncate">{publicViewId}</p>
+            </div>
+            <div className="flex flex-col gap-4">
+                <button onClick={() => { setIsLoading(true); fetchFromSheet().then(() => setIsLoading(false)); }} className="w-full px-8 py-6 bg-emerald-600 text-white rounded-[2.5rem] font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 shadow-4xl">
+                  <RefreshCw size={18} className={isSyncing ? "animate-spin" : ""}/> Sync & Retry / ซิงค์ข้อมูลใหม่
+                </button>
+                <button 
+                  onClick={() => { window.location.href = EXIT_URL; }} 
+                  className="w-full py-5 text-slate-400 font-black text-[11px] uppercase tracking-widest hover:text-emerald-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <ExternalLink size={16} /> Exit / กลับหน้าหลักบริษัท
+                </button>
             </div>
           </motion.div>
         )}
@@ -501,248 +417,366 @@ const App: React.FC = () => {
     );
   }
 
+  // --- ADMIN/STAFF DASHBOARD ---
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#fcfdfe] relative font-sans">
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#f8fafc] relative font-sans overflow-x-hidden text-left">
+      <SpinningGears />
+      
       <AnimatePresence>{syncMessage && (
-        <motion.div initial={{ opacity: 0, y: -50, x: '-50%' }} animate={{ opacity: 1, y: 20, x: '-50%' }} exit={{ opacity: 0, y: -50, x: '-50%' }} className="fixed top-0 left-1/2 z-[200] px-6 py-3 bg-indigo-600 text-white rounded-2xl shadow-2xl font-black text-xs uppercase pointer-events-none text-center">
-          {syncMessage}
-        </motion.div>
+        <motion.div initial={{ opacity: 0, y: -50, x: '-50%' }} animate={{ opacity: 1, y: 20, x: '-50%' }} exit={{ opacity: 0, y: -50, x: '-50%' }} className="fixed top-0 left-1/2 z-[300] px-10 py-5 bg-emerald-600 text-white rounded-3xl shadow-4xl font-black text-[11px] uppercase border border-emerald-500 text-center">{syncMessage}</motion.div>
       )}</AnimatePresence>
-      <aside className="hidden md:flex w-72 bg-white border-r border-slate-100 p-8 flex-col gap-8 sticky top-0 h-screen z-10 no-print">
-        <div className="flex items-center gap-4 mb-4 cursor-pointer" onClick={resetFiltersAndGoHome}>
-           <AppLogo size={45} /><div><h1 className="text-2xl font-black text-slate-800 tracking-tighter leading-none">IT PM</h1><p className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mt-1">Main / หน้าหลัก</p></div>
+
+      {/* Mobile Top Nav */}
+      <div className="md:hidden sticky top-0 z-[100] bg-slate-900 px-7 py-6 flex items-center justify-between shadow-4xl no-print border-b border-slate-800">
+        <BrandIdentity size="sm" />
+        <div className="flex gap-4">
+           <button onClick={() => setIsMobileMenuOpen(true)} className="p-3.5 bg-slate-800 text-white rounded-[1.2rem]"><Menu size={24} /></button>
+           <button onClick={() => setIsLoginModalOpen(true)} className="p-3.5 bg-emerald-600 text-white rounded-[1.2rem]"><Lock size={20} /></button>
         </div>
-        <nav className="space-y-2 flex-1">
-          <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest px-6 mb-2">Category / หมวดหมู่</p>
-          <button onClick={() => { setPmModule('computer'); setActiveTab('dashboard'); }} className={`w-full flex items-center gap-4 px-6 py-4 rounded-[1.5rem] transition-all ${pmModule === 'computer' && activeTab === 'dashboard' ? 'bg-slate-800 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}><Monitor size={18} /> <span className="text-sm">Computer / คอมฯ</span></button>
-          <button onClick={() => { setPmModule('printer'); setActiveTab('dashboard'); }} className={`w-full flex items-center gap-4 px-6 py-4 rounded-[1.5rem] transition-all ${pmModule === 'printer' && activeTab === 'dashboard' ? 'bg-slate-800 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}><Printer size={18} /> <span className="text-sm">Printer / พิมพ์</span></button>
-          <div className="h-px bg-slate-100 my-4 mx-4"></div>
-          <button onClick={() => setActiveTab('table')} className={`w-full flex items-center gap-4 px-6 py-4 rounded-[1.5rem] transition-all ${activeTab === 'table' ? 'bg-slate-100 text-slate-800 font-black' : 'text-slate-400 hover:bg-slate-50'}`}><FileText size={18} /> <span className="text-sm">PM History / ประวัติ</span></button>
-          <button onClick={() => fetchFromSheet()} disabled={isSyncing} className="w-full flex items-center gap-4 px-6 py-4 text-indigo-600 bg-indigo-50 rounded-[1.5rem] font-black text-[11px] uppercase shadow-sm mt-4">
-            {isSyncing ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />} <span>Sync / ซิงค์</span>
+      </div>
+
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: 'spring', damping: 25 }} className="fixed inset-0 z-[200] bg-slate-900 p-10 flex flex-col gap-12 no-print md:hidden shadow-4xl">
+            <div className="flex justify-between items-center">
+              <BrandIdentity size="lg" />
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-4 text-slate-400 bg-slate-800 rounded-3xl"><X size={32} /></button>
+            </div>
+            <nav className="space-y-5 flex-1 overflow-y-auto pt-8">
+              <NavBtn icon={Monitor} label="Computer / คอมพิวเตอร์" active={pmModule === 'computer' && activeTab === 'dashboard'} onClick={() => { setPmModule('computer'); setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} />
+              <NavBtn icon={PrinterIcon} label="Printer / เครื่องพิมพ์" active={pmModule === 'printer' && activeTab === 'dashboard'} onClick={() => { setPmModule('printer'); setActiveTab('dashboard'); setIsMobileMenuOpen(false); }} />
+              <div className="h-px bg-slate-800/50 my-10 mx-6"></div>
+              <NavBtn icon={FileText} label="Full Asset Ledger / รายการทั้งหมด" active={activeTab === 'table'} onClick={() => { setActiveTab('table'); setIsMobileMenuOpen(false); }} />
+            </nav>
+            <div className="space-y-5">
+              <button onClick={() => { setIsDbSettingsOpen(true); setIsMobileMenuOpen(false); }} className="w-full py-7 text-slate-400 font-black text-[11px] uppercase border border-slate-800 rounded-[3rem] flex items-center justify-center gap-3">
+                <Settings size={18} /> Settings / ตั้งค่า
+              </button>
+              {userRole === 'admin' ? (
+                <button onClick={() => { setUserRole('general'); setIsMobileMenuOpen(false); }} className="w-full py-7 bg-rose-950/40 text-rose-500 rounded-[3rem] font-black text-[11px] uppercase border border-rose-900/40">Logout Admin / ออกระบบ</button>
+              ) : (
+                <button onClick={() => { setIsLoginModalOpen(true); setIsMobileMenuOpen(false); }} className="w-full py-7 bg-emerald-600 text-white rounded-[3rem] font-black text-[11px] uppercase shadow-4xl">Admin Login / เข้าสู่ระบบ</button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Desktop Sidebar */}
+      <aside className="hidden md:flex w-80 bg-slate-900 p-12 flex-col gap-12 sticky top-0 h-screen z-20 no-print shadow-4xl border-r border-slate-800 text-left">
+        <div className="cursor-pointer" onClick={() => setActiveTab('dashboard')}><BrandIdentity size="lg" /></div>
+        <nav className="space-y-5 flex-1 pt-10">
+          <NavBtn icon={Monitor} label="Computer / คอมฯ" active={pmModule === 'computer' && activeTab === 'dashboard'} onClick={() => { setPmModule('computer'); setActiveTab('dashboard'); }} />
+          <NavBtn icon={PrinterIcon} label="Printer / พรินเตอร์" active={pmModule === 'printer' && activeTab === 'dashboard'} onClick={() => { setPmModule('printer'); setActiveTab('dashboard'); }} />
+          <div className="h-px bg-slate-800/50 my-10 mx-6"></div>
+          <NavBtn icon={FileText} label="Asset List / รายการ" active={activeTab === 'table'} onClick={() => setActiveTab('table')} />
+          <button onClick={() => fetchFromSheet()} disabled={isSyncing} className="w-full flex items-center gap-5 px-10 py-7 text-emerald-400 bg-emerald-950/30 rounded-[3rem] font-black text-[12px] uppercase border border-emerald-900/50 mt-12 hover:bg-emerald-900/40 transition-all shadow-3xl">
+            {isSyncing ? <Loader2 size={20} className="animate-spin" /> : <RefreshCw size={20} />} Cloud Sync / ซิงค์ข้อมูล
           </button>
         </nav>
-        <div className="space-y-4">
-          {userRole === 'general' ? (<button onClick={() => setIsLoginModalOpen(true)} className="w-full py-4 bg-slate-900 text-white rounded-3xl font-black text-[10px] uppercase hover:bg-indigo-600 transition-all shadow-xl"><Unlock size={14} /> Admin Login</button>) : (<button onClick={handleLogout} className="w-full py-4 bg-red-50 text-red-600 rounded-3xl font-black text-[10px] uppercase"><LogOut size={14} /> Logout</button>)}
+        
+        <div className="space-y-5">
+          <button onClick={() => setIsDbSettingsOpen(true)} className="w-full py-6 text-slate-400 font-black text-[10px] uppercase border border-slate-800 rounded-[2.5rem] flex items-center justify-center gap-3 hover:bg-slate-800"><Settings size={16} /> Setup / ตั้งค่า</button>
+          {userRole === 'admin' ? (
+            <button onClick={() => setUserRole('general')} className="w-full py-7 bg-rose-950/30 text-rose-500 rounded-[3rem] font-black text-[11px] uppercase border border-rose-900/30">Logout Admin / ออก</button>
+          ) : (
+            <button onClick={() => setIsLoginModalOpen(true)} className="w-full py-7 bg-emerald-600 text-white rounded-[3rem] font-black text-[11px] uppercase shadow-3xl hover:bg-emerald-500">Admin Login / เข้าสู่ระบบ</button>
+          )}
         </div>
       </aside>
-      
-      <header className="md:hidden sticky top-0 bg-white border-b px-6 py-4 z-40 flex items-center justify-between no-print shadow-sm">
-        <div onClick={resetFiltersAndGoHome} className="flex items-center gap-3"><AppLogo size={35} /><h1 className="text-lg font-black text-slate-800">IT PM</h1></div>
-        <div className="flex gap-2">{userRole === 'general' ? (<button onClick={() => setIsLoginModalOpen(true)} className="px-3 py-2 bg-slate-900 text-white rounded-xl text-[9px] font-black uppercase"><Unlock size={14}/></button>) : (<button onClick={handleLogout} className="px-3 py-2 bg-red-50 text-red-600 rounded-xl text-[9px] font-black uppercase"><LogOut size={14}/></button>)}</div>
-      </header>
-      
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t z-[50] flex items-center justify-around py-3 px-6 no-print shadow-[0_-4px_10px_rgba(0,0,0,0.03)] pb-safe">
-        <button onClick={() => { setActiveTab('dashboard'); resetFiltersAndGoHome(); }} className={`flex flex-col items-center gap-1 ${activeTab === 'dashboard' ? 'text-indigo-600' : 'text-slate-400'}`}><Home size={22}/><span className="text-[9px] font-black uppercase">Home</span></button>
-        <button onClick={() => { setPmModule('computer'); setActiveTab('dashboard'); }} className={`flex flex-col items-center gap-1 ${pmModule === 'computer' && activeTab === 'dashboard' ? 'text-indigo-600' : 'text-slate-400'}`}><Monitor size={22}/><span className="text-[9px] font-black uppercase">Comp</span></button>
-        <button onClick={() => { setPmModule('printer'); setActiveTab('dashboard'); }} className={`flex flex-col items-center gap-1 ${pmModule === 'printer' && activeTab === 'dashboard' ? 'text-indigo-600' : 'text-slate-400'}`}><Printer size={22}/><span className="text-[9px] font-black uppercase">Print</span></button>
-        <button onClick={() => setActiveTab('table')} className={`flex flex-col items-center gap-1 ${activeTab === 'table' ? 'text-indigo-600' : 'text-slate-400'}`}><FileText size={22}/><span className="text-[9px] font-black uppercase">Logs</span></button>
-      </nav>
-      
-      {userRole === 'admin' && (<motion.button initial={{ scale: 0 }} animate={{ scale: 1 }} onClick={handleAddNew} className="md:hidden fixed bottom-24 right-6 z-40 p-4 bg-indigo-600 text-white rounded-full shadow-2xl no-print"><Plus size={28} /></motion.button>)}
-      
-      <main ref={dashboardRef} className="flex-1 p-4 md:p-12 overflow-y-auto w-full mb-20 md:mb-0">
-        <motion.header initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4 no-print">
-          <div>
-            <div className="flex items-center gap-3 mb-1"><div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl shadow-sm"><BouncyIcon icon={pmModule === 'computer' ? Cpu : Printer} size={20} /></div><h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight capitalize">{pmModule === 'computer' ? 'Computer / คอมพิวเตอร์' : 'Printer / เครื่องพิมพ์'}</h2></div>
-            <p className="text-slate-400 font-medium ml-1 text-xs md:text-sm">IT Preventive Maintenance Dashboard / ระบบจัดการงานบำรุงรักษา</p>
+
+      {/* Main Content */}
+      <main className="flex-1 p-8 md:p-20 overflow-y-auto w-full relative z-10 text-left">
+        <header className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-14 gap-10 no-print text-left">
+          <div className="text-left">
+            <h2 className="text-4xl font-black text-slate-900 tracking-tighter uppercase leading-none">PM Hub / {pmModule === 'computer' ? 'Computer' : 'Printer'}</h2>
+            <div className="flex items-center gap-3 mt-4 text-left">
+              <p className="text-slate-400 font-black text-xs uppercase tracking-[0.4em] text-left">{COMPANY_NAME} • Maintenance System / ระบบซ่อมบำรุง</p>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
-            {userRole === 'admin' && (<button onClick={handleAddNew} className="flex-1 lg:flex-none flex items-center justify-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-xl font-black shadow-xl text-xs uppercase"><Plus size={18} /> Add New / เพิ่ม</button>)}
-            <button onClick={() => fetchFromSheet()} disabled={isSyncing} className="flex-1 lg:flex-none p-3 text-indigo-600 bg-white rounded-xl border border-indigo-100 shadow-sm font-black text-xs uppercase flex items-center justify-center gap-2">{isSyncing ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}Sync</button>
-            <button onClick={exportToExcel} className="flex-1 lg:flex-none p-3 text-emerald-600 bg-white rounded-xl border shadow-sm font-black text-xs uppercase flex items-center justify-center gap-2"><Download size={16} /> Export / ส่งออก</button>
+          <div className="flex gap-5 w-full lg:w-auto">
+            <button onClick={() => { 
+              if(userRole !== 'admin') return setIsLoginModalOpen(true);
+              setEditingItem({ id: '', date: new Date().toISOString(), department: DEPARTMENTS[0], device: pmModule === 'computer' ? 'Computer' : 'Printer', personnel: '', technician: '', status: 'Pending', activity: '', computerName: '', computerUser: '', password: '', serverPassword: '', antivirus: '', startDate: '', warrantyExpiry: '', notes: '', imageUrl: '', assetName: '', modelSpec: '', serialNumber: '', location: '' }); 
+              setIsModalOpen(true); 
+            }} className="flex-1 lg:flex-none flex items-center justify-center gap-5 px-12 py-6 bg-emerald-600 text-white rounded-[2.5rem] font-black shadow-4xl text-[14px] uppercase hover:scale-95 transition-all">
+              <Plus size={22} /> New Asset / ลงทะเบียนใหม่
+            </button>
           </div>
-        </motion.header>
+        </header>
 
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' ? (
-            <motion.div key="dash" variants={containerVariants} initial="hidden" animate="show" className="space-y-6 md:space-y-10">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
-                <MetricCard icon={Layers} title="Total Assets / ทั้งหมด" value={stats.total.toString()} subtitle="Total Managed" color="indigo" />
-                <MetricCard icon={CheckCircle} title="Efficiency / ประสิทธิภาพ" value={`${stats.completionRate}%`} subtitle="Completion Rate" color="emerald" />
-                <MetricCard icon={ShieldAlert} title="Overdue / เลยกำหนด" value={stats.overdueCount.toString()} subtitle="Urgent Maintenance" color="amber" />
-                <MetricCard icon={AlertTriangle} title="Failures / อุปกรณ์เสีย" value={stats.brokenCount.toString()} subtitle="Broken Units" color="purple" />
+            <motion.div key="dash" variants={containerVariants} initial="hidden" animate="show" className="space-y-14">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-10 text-left">
+                <MetricCard icon={Layers} title="Total Assets / รวม" value={stats.total.toString()} subtitle="Current module units" color="emerald" />
+                <MetricCard icon={CheckCircle} title="PM Efficiency / ผลงาน" value={`${stats.completionRate}%`} subtitle="Completion ratio" color="teal" />
+                <MetricCard icon={Server} title="Connection / การเชื่อมต่อ" value={isCloudConnected ? "Online / ออนไลน์" : "Local / เครื่อง"} subtitle="Database status" color={isCloudConnected ? "emerald" : "amber"} />
+                <MetricCard icon={Activity} title="System Status / สถานะ" value="Active / ทำงาน" subtitle="Real-time update" color="emerald" />
               </div>
               
-              <motion.div variants={bouncyItem} className="bg-white p-4 md:p-8 rounded-[2rem] border shadow-md flex flex-col sm:flex-row items-center justify-between gap-6 overflow-hidden">
-                <div className="flex items-center gap-4 w-full"><div className="p-4 bg-red-50 text-red-600 rounded-2xl"><AlertTriangle size={24} /></div><div><h3 className="text-lg md:text-xl font-black text-slate-800">Maintenance Alerts / การแจ้งเตือนบำรุงรักษา</h3><p className="text-xs font-bold text-slate-400">Based on Next PM Schedule (Column C)</p></div></div>
-                <div className="flex items-center gap-4 w-full sm:w-auto">
-                   <div className="flex-1 sm:flex-none px-6 py-4 bg-red-50 border-red-100 rounded-2xl text-center"><p className="text-[8px] font-black text-red-400 uppercase tracking-widest">Overdue / เลยกำหนด</p><p className="text-2xl font-black text-red-600">{stats.overdueCount}</p></div>
-                   <div className="flex-1 sm:flex-none px-6 py-4 bg-amber-50 border-amber-100 rounded-2xl text-center"><p className="text-[8px] font-black text-amber-400 uppercase tracking-widest">Near Due / ใกล้กำหนด</p><p className="text-2xl font-black text-amber-600">{stats.nearDueCount}</p></div>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 text-left">
+                <div className="bg-white p-14 rounded-[4rem] shadow-4xl border border-slate-100 lg:col-span-2 text-left">
+                  <h3 className="text-2xl font-black mb-14 uppercase flex items-center gap-5 tracking-tighter text-slate-800 text-left"><Monitor size={28} className="text-emerald-600" /> Units by Dept / อุปกรณ์ตามแผนก</h3>
+                  <ResponsiveContainer width="100%" height={340}>
+                    <BarChart data={stats.deptStats} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 800, fill: '#64748b' }} width={160} />
+                      <Tooltip />
+                      <Bar dataKey="count" radius={[0, 15, 15, 0]} barSize={18}>
+                        {stats.deptStats.map((_, i) => (<Cell key={`cell-${i}`} fill={CHART_COLORS[i % CHART_COLORS.length]} />))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
                 </div>
-              </motion.div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10">
-                <motion.div variants={bouncyItem} className="bg-white p-6 md:p-10 rounded-[2rem] border shadow-lg">
-                  <div className="flex items-center gap-4 mb-6"><BouncyIcon icon={Activity} size={20} /><h3 className="text-lg font-black text-slate-800">Workload by Department / ปริมาณงานรายแผนก</h3></div>
-                  <div className="w-full"><ResponsiveContainer width="100%" height={250}><BarChart data={stats.deptStats} layout="vertical" margin={{ left: -10 }}><CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" /><XAxis type="number" hide /><YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 8, fill: '#94a3b8', fontWeight: 700 }} width={80} /><Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ border: 'none', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }} /><Bar dataKey="count" radius={[0, 8, 8, 0]} barSize={12}>{stats.deptStats.map((_, i) => <Cell key={`cell-${i}`} fill={COLORS[i % COLORS.length]} />)}</Bar></BarChart></ResponsiveContainer></div>
-                </motion.div>
-                <motion.div variants={bouncyItem} className="bg-white p-6 md:p-10 rounded-[2rem] border shadow-lg">
-                  <div className="flex items-center gap-4 mb-6"><BouncyIcon icon={TrendingUp} size={20} className="text-emerald-500" /><h3 className="text-lg font-black text-slate-800">PM Trends / แนวโน้มการดำเนินงาน</h3></div>
-                  <div className="w-full"><ResponsiveContainer width="100%" height={250}><AreaChart data={stats.dailyTrend}><defs><linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#6366f1" stopOpacity={0.15}/><stop offset="95%" stopColor="#6366f1" stopOpacity={0}/></linearGradient></defs><CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" /><XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 8, fill: '#94a3b8', fontWeight: 700 }} /><YAxis axisLine={false} tickLine={false} tick={{ fontSize: 8, fill: '#94a3b8', fontWeight: 700 }} /><Tooltip contentStyle={{ border: 'none', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)' }} /><Area type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorCount)" /></AreaChart></ResponsiveContainer></div>
-                </motion.div>
+                
+                <div className="bg-white p-14 rounded-[4rem] shadow-4xl border border-slate-100 flex flex-col items-center text-left">
+                  <h3 className="text-2xl font-black mb-14 uppercase flex items-center gap-5 tracking-tighter text-slate-800 self-start text-left"><TrendingUp size={28} className="text-emerald-600" /> PM Workload / สถานะงาน</h3>
+                  <ResponsiveContainer width="100%" height={340}>
+                    <PieChart>
+                      <Pie data={stats.statusStats} cx="50%" cy="50%" innerRadius={80} outerRadius={110} paddingAngle={10} dataKey="value">
+                        <Cell fill="#059669" />
+                        <Cell fill="#f59e0b" />
+                        <Cell fill="#64748b" />
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex gap-6 mt-8">
+                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-600"></div><span className="text-[10px] font-black uppercase text-slate-400">Done / เสร็จ</span></div>
+                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-amber-500"></div><span className="text-[10px] font-black uppercase text-slate-400">Doing / กำลังทำ</span></div>
+                     <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-slate-400"></div><span className="text-[10px] font-black uppercase text-slate-400">Pending / รอ</span></div>
+                  </div>
+                </div>
               </div>
             </motion.div>
           ) : (
-            <motion.div key="table" initial="hidden" animate="show" variants={containerVariants} className="space-y-4">
-               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border shadow-sm no-print">
-                 <div className="flex items-center gap-3"><BouncyIcon icon={pmModule === 'computer' ? Monitor : Printer} size={22} /><h3 className="text-lg font-black text-slate-800 capitalize">{pmModule === 'computer' ? 'Computer / คอมพิวเตอร์' : 'Printer / เครื่องพิมพ์'} History</h3></div>
-                 <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                    {pmModule === 'computer' && (<button onClick={handleRequestUnlock} className="flex-1 sm:flex-none px-4 py-2 bg-indigo-600 text-white text-[9px] font-black uppercase rounded-xl flex items-center justify-center gap-2 shadow-lg hover:bg-indigo-700 transition-all"><Lock size={14} /> Password / ดูรหัส</button>)}
-                    <button onClick={handlePrintAll} className="flex-1 sm:flex-none px-4 py-2 bg-indigo-50 text-indigo-600 text-[9px] font-black uppercase rounded-xl hover:bg-indigo-100 flex items-center justify-center gap-2"><PrinterIcon size={14} /> Batch Print / พิมพ์ทั้งหมด</button>
-                    <button onClick={exportToExcel} className="flex-1 sm:flex-none px-4 py-2 bg-emerald-50 text-emerald-600 text-[9px] font-black uppercase rounded-xl hover:bg-emerald-100 flex items-center justify-center gap-2"><FileSpreadsheet size={14} /> Export / ส่งออก</button>
-                 </div>
-               </div>
-               
-               <div className="md:hidden space-y-4">
-                 {filteredItems.map((it) => {
-                   if (!it) return null;
-                   const alert = getMaintenanceAlert(it.nextPmDate);
-                   return (
-                     <motion.div key={it.id} variants={bouncyItem} className={`bg-white p-5 rounded-2xl border ${alert === 'overdue' ? 'border-red-200 bg-red-50/20' : 'border-slate-100'} shadow-sm space-y-4`}>
-                       <div className="flex justify-between items-start">
-                         <div><p className="font-black text-slate-800">{it.computerName || 'N/A'}</p><p className="text-[9px] text-slate-400 font-bold tracking-widest uppercase">{it.id} • {it.department}</p></div>
-                         <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black border ${getPMStatusColor(it.status)}`}>{it.status || 'Pending'}</span>
-                       </div>
-                       <div className="grid grid-cols-2 gap-4 py-2">
-                          <div className="space-y-1"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">User (F) / ผู้ใช้</p><p className="text-xs font-bold text-slate-700">{it.personnel || '-'}</p></div>
-                          <div className="space-y-1 col-span-2"><p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Next PM (C) / ครั้งถัดไป</p><p className={`text-xs font-black ${alert === 'overdue' ? 'text-red-600' : 'text-indigo-600'}`}>{formatDateDisplay(it.nextPmDate)}</p></div>
-                       </div>
-                       <div className="flex items-center justify-between pt-2 border-t">
-                         <div className="flex gap-2"><button onClick={() => handlePrintSingle(it)} className="p-2 text-emerald-600 bg-emerald-50 rounded-lg"><PrinterIcon size={16} /></button><button onClick={() => handleShowQr(it)} className="p-2 text-purple-600 bg-purple-50 rounded-lg"><QrCode size={16} /></button></div>
-                         <div className="flex gap-2">{userRole === 'admin' ? (<><button onClick={() => handleEdit(it)} className="p-2 text-indigo-600 bg-indigo-50 rounded-lg"><Edit2 size={16} /></button><button onClick={() => handleDelete(it.id)} className="p-2 text-red-600 bg-red-50 rounded-lg"><Trash2 size={16} /></button></>) : (<div className="flex items-center gap-1.5 px-3 py-1 bg-slate-100 text-slate-400 rounded-lg text-[8px] font-black uppercase"><Lock size={10}/> Locked</div>)}</div>
-                       </div>
-                     </motion.div>
-                   );
-                 })}
-               </div>
-
-               <div className="hidden md:block bg-white rounded-[2rem] border shadow-xl overflow-hidden print-visible">
-                 <div className="overflow-x-auto w-full">
-                   <table className="w-full text-left">
-                     <thead className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                       <tr><th className="px-10 py-6">Device Info / ข้อมูล</th><th className="px-10 py-6">PM Status (G)</th><th className="px-10 py-6">User (F) / ผู้ใช้</th><th className="px-10 py-6">Next Schedule (C)</th>{pmModule === 'computer' && <th className="px-10 py-6">Passwords</th>}<th className="px-10 py-6 text-right no-print">Actions / จัดการ</th></tr>
-                     </thead>
-                     <tbody className="divide-y divide-slate-50">
-                       {filteredItems.map((it) => {
-                         if (!it) return null;
-                         const alert = getMaintenanceAlert(it.nextPmDate);
-                         return (
-                           <motion.tr key={it.id} variants={bouncyItem} className={`transition-colors group ${alert === 'overdue' ? 'bg-red-50/40' : 'hover:bg-indigo-50/20'}`}>
-                             <td className="px-10 py-6"><p className="font-black text-slate-800 text-sm">{it.computerName || 'N/A'}</p><p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{it.id} • {it.department}</p>{it.device === 'Computer' && <p className="text-[10px] text-indigo-500 font-bold mt-1">User computer: {it.computerUser || '-'}</p>}</td>
-                             <td className="px-10 py-6">
-                               <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black border transition-colors ${getPMStatusColor(it.status)}`}>
-                                 {it.status || 'Pending'}
-                               </span>
-                             </td>
-                             <td className="px-10 py-6"><p className="text-xs font-bold text-slate-600">{it.personnel || '-'}</p></td>
-                             <td className="px-10 py-6"><span className={`text-[11px] font-black ${alert === 'overdue' ? 'text-red-600' : 'text-indigo-500'}`}>{formatDateDisplay(it.nextPmDate)}</span></td>
-                             {pmModule === 'computer' && (<td className="px-10 py-6"><div className="space-y-1"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">PC: <span className="text-slate-600 lowercase">{isAdminSession ? it.password : '••••••••'}</span></p><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Srv: <span className="text-slate-600 lowercase">{isAdminSession ? it.serverPassword : '••••••••'}</span></p></div></td>)}
-                             <td className="px-10 py-6 text-right flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity no-print"><button onClick={() => handlePrintSingle(it)} className="p-3 text-emerald-600 bg-emerald-50 rounded-xl"><PrinterIcon size={18} /></button><button onClick={() => handleShowQr(it)} className="p-3 text-purple-600 bg-purple-50 rounded-xl"><QrCode size={18} /></button>{userRole === 'admin' ? (<><button onClick={() => handleEdit(it)} className="p-3 text-indigo-600 bg-indigo-50 rounded-xl"><Edit2 size={18} /></button><button onClick={() => handleDelete(it.id)} className="p-3 text-red-600 bg-red-50 rounded-xl"><Trash2 size={18} /></button></>) : (<div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-400 rounded-xl text-[9px] font-black uppercase"><Lock size={10}/> Locked</div>)}</td>
-                           </motion.tr>
-                         );
-                       })}
-                     </tbody>
-                   </table>
-                 </div>
-               </div>
+            <motion.div key="table" variants={containerVariants} initial="hidden" animate="show" className="bg-white rounded-[4rem] shadow-4xl overflow-hidden border border-slate-100 overflow-x-auto transition-all text-left">
+              <table className="w-full text-left border-collapse min-w-[900px]">
+                <thead className="bg-slate-50/80 border-b border-slate-100 text-[12px] font-black text-slate-400 uppercase tracking-[0.25em]">
+                  <tr>
+                    <th className="px-14 py-12">Asset & ID / ข้อมูลอุปกรณ์</th>
+                    <th className="px-14 py-12">PM Status / สถานะ</th>
+                    <th className="px-14 py-12">User / ผู้รับผิดชอบ</th>
+                    <th className="px-14 py-12">Last Cycle / วันที่ทำ</th>
+                    <th className="px-14 py-12 text-center">Manage / จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {filteredItems.length > 0 ? filteredItems.map(it => (
+                    <tr key={it.id} className="hover:bg-slate-50/70 transition-all group">
+                      <td className="px-14 py-12">
+                        <div className="text-left">
+                          <p className="font-black text-slate-800 text-[18px] tracking-tight">{it.assetName || it.computerName || it.id}</p>
+                          <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest mt-1.5">{it.id} | {it.modelSpec || '-'}</p>
+                        </div>
+                      </td>
+                      <td className="px-14 py-12">
+                        <span className={`px-6 py-3 rounded-2xl text-[10px] font-black uppercase shadow-sm ${it.status === 'Completed' ? 'bg-emerald-600 text-white shadow-emerald-600/20' : it.status === 'In Progress' ? 'bg-amber-500 text-white shadow-amber-500/20' : 'bg-slate-400 text-white shadow-slate-400/20'}`}>
+                          {it.status === 'Completed' ? 'Done / เสร็จแล้ว' : it.status === 'In Progress' ? 'Doing / กำลังทำ' : 'Pending / รอทำ'}
+                        </span>
+                      </td>
+                      <td className="px-14 py-12 text-[15px] font-black text-slate-700">{it.personnel || '-'}</td>
+                      <td className="px-14 py-12 text-[13px] font-black text-slate-500">{formatDateDisplay(it.date)}</td>
+                      <td className="px-14 py-12">
+                        <div className="flex gap-5 justify-center">
+                          <button onClick={() => { setQrItem(it); setIsQrModalOpen(true); }} className="p-5 text-emerald-600 bg-emerald-50 rounded-3xl border border-emerald-100 hover:scale-110 shadow-md active:scale-95"><QrCode size={22} /></button>
+                          {userRole === 'admin' && (
+                            <button onClick={() => { setEditingItem({...it}); setIsModalOpen(true); }} className="p-5 text-slate-600 bg-slate-50 rounded-3xl border border-slate-100 hover:bg-emerald-600 hover:text-white transition-all shadow-md flex items-center gap-4 active:scale-95">
+                              <Edit2 size={22} />
+                              <span className="text-[12px] font-black uppercase tracking-tight">Edit / แก้ไข</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={5} className="px-14 py-32 text-center">
+                         <p className="text-slate-400 font-black uppercase tracking-widest">No assets found / ยังไม่มีรายการ</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
 
-      {/* Bulk Print Section */}
-      <div id="qr-print-section"><div className="qr-print-grid">{itemsToPrint.map((item) => (
-            <div key={item.id} className="qr-tag-card">
-              <div style={{ marginBottom: '15px' }}><img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`${window.location.origin}${window.location.pathname}?view=${item.id}`)}`} alt="QR" style={{ width: '150px', height: '150px' }} /></div>
-              <div style={{ fontSize: '18px', fontWeight: '900', color: '#1e293b' }}>{item.computerName || 'N/A'}</div>
-              <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#64748b', marginTop: '4px' }}>{item.id} • {item.department}</div>
-              <div style={{ fontSize: '9px', color: '#94a3b8', marginTop: '4px' }}>User / ผู้ใช้: {item.personnel || '-'}</div>
-              {item.nextPmDate && <div style={{ fontSize: '9px', color: '#6366f1', fontWeight: '900', marginTop: '2px' }}>Next Schedule: {formatDateDisplay(item.nextPmDate)}</div>}
-              <div style={{ fontSize: '10px', fontWeight: '900', color: '#6366f1', textTransform: 'uppercase', marginTop: '10px', borderTop: '1px solid #f1f5f9', paddingTop: '8px', width: '100%' }}>Scan for Report / สแกนรายงาน</div>
-            </div>
-      ))}</div></div>
-
-      {/* Modals */}
-      <AnimatePresence>{isLoginModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
-          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[2rem] shadow-3xl w-full max-w-sm overflow-hidden p-8 space-y-6">
-            <div className="text-center space-y-3"><div className="inline-block p-4 bg-indigo-600 text-white rounded-[1rem] shadow-xl"><BouncyIcon icon={Lock} size={24} className="text-white" /></div><h3 className="text-xl font-black">Admin Access / เข้าสู่ระบบ</h3></div>
-            <form onSubmit={handleLogin} className="space-y-5">
-              <FormInput label="Username / ชื่อผู้ใช้" value={loginForm.username} onChange={val => setLoginForm({...loginForm, username: val})} placeholder="Username" />
-              <FormInput label="Password / รหัสผ่าน" value={loginForm.password} onChange={val => setLoginForm({...loginForm, password: val})} placeholder="Password" type="password" />
-              {loginError && <p className="text-[10px] font-black text-red-500 uppercase text-center bg-red-50 py-3 rounded-xl">{loginError}</p>}
-              <button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase shadow-xl">Login / เข้าสู่ระบบ</button>
-              <button type="button" onClick={() => setIsLoginModalOpen(false)} className="w-full text-slate-400 font-black text-[10px] uppercase">Cancel / ยกเลิก</button>
-            </form>
-          </motion.div>
-        </div>
-      )}</AnimatePresence>
-
+      {/* Asset Edit Modal */}
       <AnimatePresence>{isModalOpen && editingItem && (
-        <div className="fixed inset-0 z-[60] flex items-end md:items-center justify-center bg-slate-900/60 backdrop-blur-sm no-print overflow-y-auto">
-          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-t-[2rem] md:rounded-[3rem] shadow-3xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-6 md:p-8 border-b flex justify-between items-center sticky top-0 bg-white z-10">
-              <div className="flex items-center gap-3"><div className="p-2 bg-indigo-600 text-white rounded-xl"><BouncyIcon icon={editingItem.device === 'Computer' ? Monitor : Printer} size={18} className="text-white" /></div><h3 className="text-lg md:text-xl font-black text-slate-800">{items.find(i => i && i.id === editingItem.id) ? 'Edit Record / แก้ไข' : 'New Record / เพิ่มข้อมูล'}</h3></div>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 bg-slate-100 text-slate-400 rounded-xl"><X size={20} /></button>
-            </div>
-            <form onSubmit={handleSave} className="p-6 md:p-8 overflow-y-auto space-y-6 md:space-y-8 flex-1 pb-20">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <FormInput label="Device ID / รหัสอุปกรณ์ (ID)" value={editingItem.id} onChange={val => setEditingItem({...editingItem, id: val})} placeholder="Example: IT-001" />
-                <FormInput label="Date / วันที่บันทึก" type="date" value={toISODate(editingItem.date)} onChange={val => setEditingItem({...editingItem, date: val})} />
-                <FormSelect label="Department / แผนก" value={editingItem.department} options={DEPARTMENTS} onChange={val => setEditingItem({...editingItem, department: val})} />
-                <FormInput label="User / ผู้ใช้งาน (Col F)" value={editingItem.personnel || ''} onChange={val => setEditingItem({...editingItem, personnel: val})} placeholder="Enter technician/user name" />
-                
-                {editingItem.device === 'Computer' && (
-                  <>
-                    <FormInput label="User computer / ผู้ใช้คอมพิวเตอร์ (Col J)" value={editingItem.computerUser || ''} onChange={val => setEditingItem({...editingItem, computerUser: val})} placeholder="Computer user name" />
-                    <FormInput label="Antivirus / แอนตี้ไวรัส (Col M)" value={editingItem.antivirus || ''} onChange={val => setEditingItem({...editingItem, antivirus: val})} placeholder="e.g. Kaspersky" />
-                  </>
-                )}
-                
-                <FormSelect label="PM Status / สถานะ (Col G)" value={editingItem.status} options={['Pending', 'In Progress', 'Completed']} onChange={val => setEditingItem({...editingItem, status: val as any})} />
-                <FormSelect label="Device Health / สภาพเครื่อง" value={editingItem.deviceStatus || ''} options={DEVICE_STATUS_OPTIONS} onChange={val => setEditingItem({...editingItem, deviceStatus: val})} />
-                <FormInput label={editingItem.device === 'Computer' ? 'Hostname / ชื่อเครื่อง' : 'Device Name / ชื่ออุปกรณ์'} value={editingItem.computerName} onChange={val => setEditingItem({...editingItem, computerName: val})} />
-                
-                {editingItem.device === 'Computer' && (
-                  <>
-                    <FormInput label="PC Pass / รหัสผ่าน (Col K)" value={editingItem.password || ''} onChange={val => setEditingItem({...editingItem, password: val})} showToggle isLocked={!isAdminSession} onUnlock={handleRequestUnlock} />
-                    <FormInput label="Server Pass / รหัสเซิร์ฟฯ (Col L)" value={editingItem.serverPassword || ''} onChange={val => setEditingItem({...editingItem, serverPassword: val})} showToggle isLocked={!isAdminSession} onUnlock={handleRequestUnlock} />
-                  </>
-                )}
+        <div className="fixed inset-0 z-[500] flex items-end md:items-center justify-center bg-slate-900/85 backdrop-blur-xl overflow-y-auto pt-14 text-left">
+          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-t-[4.5rem] md:rounded-[4.5rem] w-full max-w-7xl overflow-hidden flex flex-col max-h-[94vh] shadow-5xl text-left border border-slate-200">
+            <div className="p-12 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-50 text-left">
+              <div className="flex items-center gap-8 text-left">
+                <div className="p-5 bg-emerald-600 text-white rounded-[2.5rem] shadow-4xl"><Wrench size={34} /></div>
+                <div className="text-left">
+                  <h3 className="text-3xl font-black uppercase tracking-tight text-slate-900">{editingItem.id ? 'Modify Asset / แก้ไขข้อมูล' : 'New Asset / ลงทะเบียนใหม่'}</h3>
+                  <p className="text-[12px] font-black text-slate-400 uppercase tracking-[0.3em] mt-2">Ref ID: {editingItem.id || 'NEW'}</p>
+                </div>
               </div>
-              
-              <div className="space-y-4">
-                <div className="flex items-center gap-2"><BouncyIcon icon={CheckSquare} size={18} /><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Maintenance Checklist / รายการตรวจสอบ</label></div>
-                <div className="grid grid-cols-1 gap-2 p-4 bg-slate-50 rounded-2xl">
+              <button onClick={() => setIsModalOpen(false)} className="p-6 bg-slate-50 text-slate-400 rounded-3xl active:scale-90 shadow-sm"><X size={32} /></button>
+            </div>
+            
+            <form onSubmit={handleSave} className="p-14 space-y-16 overflow-y-auto pb-40 text-left no-scrollbar">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-14 text-left">
+                 <div className="md:col-span-1 space-y-5 text-left">
+                    <label className="text-[12px] font-black text-slate-500 uppercase tracking-[0.25em] ml-8 flex items-center gap-4 text-left"><ImageIcon size={18} className="text-emerald-600"/> Asset Image (N)</label>
+                    <div className="aspect-square bg-slate-50 border-4 border-dashed border-slate-200 rounded-[5rem] flex flex-col items-center justify-center overflow-hidden group relative shadow-inner">
+                       {editingItem.imageUrl ? (
+                         <>
+                           <img src={editingItem.imageUrl} className="w-full h-full object-cover" alt="Proof" />
+                           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-8">
+                              <button type="button" onClick={() => cameraInputRef.current?.click()} className="p-6 bg-emerald-600 text-white rounded-full"><Camera size={36} /></button>
+                              <button type="button" onClick={() => fileInputRef.current?.click()} className="p-6 bg-white text-emerald-600 rounded-full"><Upload size={36} /></button>
+                           </div>
+                         </>
+                       ) : (
+                         <div className="flex flex-col items-center gap-10 text-center px-8">
+                            <div className="flex gap-8">
+                               <button type="button" onClick={() => cameraInputRef.current?.click()} className="p-7 bg-white text-emerald-600 rounded-[3rem] shadow-4xl"><Camera size={48} /></button>
+                               <button type="button" onClick={() => fileInputRef.current?.click()} className="p-7 bg-white text-emerald-600 rounded-[3rem] shadow-4xl"><Upload size={48} /></button>
+                            </div>
+                            <span className="text-[12px] font-black text-slate-300 uppercase tracking-[0.4em]">Capture/Upload</span>
+                         </div>
+                       )}
+                       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleImageUpload} />
+                    </div>
+                 </div>
+
+                 <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-10 text-left">
+                    <FormInput label="Asset ID / รหัสทรัพย์สิน (A)" icon={Hash} value={editingItem.id} onChange={val => setEditingItem({...editingItem, id: val})} required placeholder="Ex: TC-2568-001" />
+                    <FormInput label="Last PM / ทำล่าสุด (B)" type="date" value={toISODate(editingItem.date)} onChange={val => setEditingItem({...editingItem, date: val})} required />
+                    <FormInput label="Next PM / ครั้งหน้า (C)" value={formatDateDisplay(calculateNextPM(editingItem.date, editingItem.device))} readOnly icon={Calendar} />
+                    <FormInput label="Asset Name / ชื่อเรียก (S)" icon={Tag} value={editingItem.assetName || ''} onChange={val => setEditingItem({...editingItem, assetName: val})} placeholder="Ex: Finance PC" />
+                    <FormInput label="Spec / รุ่น (T)" icon={Cpu} value={editingItem.modelSpec || ''} onChange={val => setEditingItem({...editingItem, modelSpec: val})} />
+                    <FormInput label="Serial No. (U)" value={editingItem.serialNumber || ''} onChange={val => setEditingItem({...editingItem, serialNumber: val})} />
+                    <FormInput label="Location / สถานที่ (V)" icon={MapPin} value={editingItem.location || ''} onChange={val => setEditingItem({...editingItem, location: val})} />
+                    <FormSelect label="Department / แผนก (D)" value={editingItem.department} options={DEPARTMENTS} onChange={val => setEditingItem({...editingItem, department: val})} />
+                    <FormSelect label="Device Type / ประเภท (E)" value={editingItem.device} options={['Computer', 'Printer']} onChange={val => setEditingItem({...editingItem, device: val as any})} />
+                 </div>
+              </div>
+
+              {/* Security */}
+              <div className="space-y-10 text-left">
+                <div className="flex items-center gap-5"><div className="w-2.5 h-10 bg-emerald-600 rounded-full"></div><h4 className="text-xl font-black text-slate-900 uppercase">Access & Security / ความปลอดภัย (J-M)</h4></div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-10 text-left">
+                   <FormInput label="Login User (J)" icon={Lock} value={editingItem.computerUser || ''} onChange={val => setEditingItem({...editingItem, computerUser: val})} />
+                   <FormInput label="PC Pass (K)" icon={Key} type="password" value={editingItem.password || ''} onChange={val => setEditingItem({...editingItem, password: val})} />
+                   <FormInput label="Server Pass (L)" icon={Key} type="password" value={editingItem.serverPassword || ''} onChange={val => setEditingItem({...editingItem, serverPassword: val})} />
+                   <FormInput label="Antivirus (M)" icon={ShieldCheck} value={editingItem.antivirus || ''} onChange={val => setEditingItem({...editingItem, antivirus: val})} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-10 text-left">
+                 <FormInput label="User / ผู้ใช้ (F)" value={editingItem.personnel || ''} onChange={val => setEditingItem({...editingItem, personnel: val})} />
+                 <FormInput label="Technician / ช่าง (O)" value={editingItem.technician || ''} onChange={val => setEditingItem({...editingItem, technician: val})} />
+                 <FormInput label="Hostname (I)" value={editingItem.computerName || ''} onChange={val => setEditingItem({...editingItem, computerName: val})} />
+              </div>
+
+              <div className="space-y-10 text-left">
+                <div className="flex items-center gap-5"><div className="w-2.5 h-10 bg-slate-400 rounded-full"></div><h4 className="text-xl font-black text-slate-900 uppercase">Lifecycle & Maintenance (P-R)</h4></div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-10 text-left">
+                   <FormInput label="Start Date (P)" type="date" value={toISODate(editingItem.startDate)} onChange={val => setEditingItem({...editingItem, startDate: val})} />
+                   <FormInput label="Warranty (Q)" type="date" value={toISODate(editingItem.warrantyExpiry)} onChange={val => setEditingItem({...editingItem, warrantyExpiry: val})} />
+                   <FormSelect label="Status (G)" value={editingItem.status || 'Pending'} options={['Pending', 'In Progress', 'Completed']} onChange={val => setEditingItem({...editingItem, status: val as any})} />
+                </div>
+                <FormInput label="Notes / อะไหล่ (R)" value={editingItem.notes || ''} onChange={val => setEditingItem({...editingItem, notes: val})} />
+              </div>
+
+              <div className="space-y-10 text-left">
+                <label className="text-[12px] font-black text-slate-500 uppercase tracking-[0.3em] ml-8 flex items-center gap-4 text-left"><CheckSquare size={20} className="text-emerald-600" /> PM Checklist (H)</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-12 bg-slate-50 rounded-[4rem] border border-slate-100 shadow-inner text-left">
                   {(editingItem.device === 'Computer' ? COMPUTER_STANDARD_ACTIVITIES : PRINTER_STANDARD_ACTIVITIES).map((act, i) => {
-                    const isChecked = editingItem.activity && String(editingItem.activity).includes(act);
-                    return (<label key={i} className="flex items-center gap-3 p-3 bg-white rounded-xl border cursor-pointer hover:border-indigo-300 transition-colors">
-                      <input type="checkbox" className="hidden" checked={!!isChecked} onChange={() => {
-                        const acts = String(editingItem.activity || '').split(' | ').filter(x => x);
-                        const next = isChecked ? acts.filter(x => x !== act) : [...acts, act];
-                        setEditingItem({...editingItem, activity: next.join(' | ')});
-                      }} /><div className={`p-1 rounded ${isChecked ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{isChecked ? <CheckCircle size={14} /> : <Square size={14} />}</div><span className={`text-[11px] font-bold ${isChecked ? 'text-indigo-600' : 'text-slate-500'}`}>{act}</span>
-                    </label>);
+                    const isChecked = String(editingItem.activity || '').includes(act);
+                    return (
+                      <label key={i} className={`flex items-center gap-8 p-7 rounded-[2.5rem] border cursor-pointer text-left ${isChecked ? 'bg-white border-emerald-500 shadow-2xl translate-x-1.5' : 'bg-white border-slate-100'}`}>
+                        <input type="checkbox" className="hidden" checked={isChecked} onChange={() => {
+                          const currentActs = String(editingItem.activity || '').split(' | ').filter(x => x);
+                          const newActs = isChecked ? currentActs.filter(a => a !== act) : [...currentActs, act];
+                          setEditingItem({...editingItem, activity: newActs.join(' | ')});
+                        }} />
+                        <div className={`p-2.5 rounded-xl ${isChecked ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-300'}`}>{isChecked ? <CheckCircle size={24} /> : <Square size={24} />}</div>
+                        <span className={`text-[15px] font-black leading-tight text-left ${isChecked ? 'text-slate-900' : 'text-slate-400'}`}>{act}</span>
+                      </label>
+                    );
                   })}
                 </div>
               </div>
-              <div className="sticky bottom-0 bg-white pt-4 pb-4 border-t z-10 flex gap-4"><button type="submit" className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase shadow-xl active:scale-95 transition-all">Save Record / บันทึกข้อมูล</button></div>
+
+              <div className="bg-emerald-50 p-12 rounded-[4.5rem] border-2 border-emerald-100/60 flex flex-col md:flex-row items-center justify-between gap-12 shadow-inner text-left">
+                <div className="text-left w-full md:w-auto">
+                  <p className="text-[12px] font-black text-emerald-600 uppercase mb-4 tracking-[0.3em] text-left">Next PM Forecast / รอบถัดไป</p>
+                  <p className="text-5xl font-black text-emerald-900 tracking-tighter text-left">{editingItem.status === 'Completed' ? formatDateDisplay(calculateNextPM(editingItem.date, editingItem.device)) : 'PENDING ACTION'}</p>
+                </div>
+                <div className="flex gap-8 w-full md:w-auto">
+                   <button type="button" onClick={() => setIsModalOpen(false)} className="px-14 py-7 bg-white text-slate-400 rounded-[3rem] font-black text-xs uppercase hover:text-rose-500 border border-slate-100 shadow-2xl">Cancel / ยกเลิก</button>
+                   <button type="submit" className="px-20 py-7 bg-emerald-600 text-white rounded-[3rem] font-black text-xs uppercase shadow-4xl flex items-center justify-center gap-5 active:scale-95"><Database size={24} /> Commit & Sync / บันทึกข้อมูล</button>
+                </div>
+              </div>
             </form>
           </motion.div>
         </div>
       )}</AnimatePresence>
 
       <AnimatePresence>{isQrModalOpen && qrItem && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm no-print">
-          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[2rem] shadow-3xl w-full max-w-sm overflow-hidden p-8 text-center space-y-6">
-            <div className="flex justify-between items-center"><h3 className="text-xl font-black">QR Tag / ป้ายอุปกรณ์</h3><button onClick={() => setIsQrModalOpen(false)} className="p-2 bg-slate-50 text-slate-400 rounded-xl"><X size={20} /></button></div>
-            <div className="bg-slate-50 p-6 rounded-[2rem] border inline-block"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`${window.location.origin}${window.location.pathname}?view=${qrItem.id}`)}`} alt="QR" className="w-40 h-40 rounded-xl" /></div>
-            <div className="p-4 bg-indigo-50 rounded-2xl text-center"><p className="text-sm font-black text-indigo-700">{qrItem.computerName || 'N/A'}</p><p className="text-[9px] font-bold text-indigo-400 tracking-widest">{qrItem.id}</p></div>
-            <div className="flex flex-col gap-3">
-              <button onClick={() => setPublicViewId(qrItem.id)} className="w-full py-4 bg-indigo-600 text-white rounded-xl font-black text-[9px] uppercase shadow-xl">Preview Report / ดูตัวอย่าง</button>
-              <button onClick={() => { try { navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?view=${qrItem.id}`); alert('Link copied!'); } catch(e) {} }} className="w-full p-4 bg-slate-100 text-slate-500 rounded-xl flex items-center justify-center gap-2 font-black text-[9px] uppercase"><Share2 size={16} /> Share Link / แชร์ลิงก์</button>
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-slate-900/85 backdrop-blur-xl no-print text-left">
+          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[4.5rem] shadow-5xl w-full max-w-sm p-14 text-center relative overflow-hidden">
+             <button onClick={() => setIsQrModalOpen(false)} className="absolute top-12 right-12 text-slate-300 active:scale-90"><X size={32} /></button>
+             <h3 className="text-3xl font-black mb-12 uppercase tracking-tight text-slate-900">Asset QR / คิวอาร์โค้ด</h3>
+             <div className="bg-slate-50 p-12 rounded-[4rem] border border-slate-100 inline-block mb-10 shadow-inner group">
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=350x350&data=${encodeURIComponent(`${appBaseUrl}?view=${qrItem.id}`)}`} alt="QR" className="w-56 h-56 rounded-3xl shadow-3xl" />
+             </div>
+
+             <div className="space-y-4 mb-8">
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Test Connection / วิธีทดสอบ</p>
+                <div className="flex flex-col gap-3">
+                   <button onClick={() => handleCopyTestLink(qrItem.id)} className="w-full py-5 bg-emerald-50 text-emerald-600 rounded-[2rem] font-black text-[11px] uppercase border border-emerald-100 hover:bg-emerald-100 flex items-center justify-center gap-3 active:scale-95">
+                      <Copy size={18} /> Copy Test Link / คัดลอกลิงก์
+                   </button>
+                   <button onClick={() => setPublicViewId(qrItem.id)} className="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-[11px] uppercase shadow-4xl hover:bg-black flex items-center justify-center gap-3 active:scale-95">
+                      <Monitor size={18} /> Live View / ดูหน้าสแกนสด
+                   </button>
+                </div>
+             </div>
+          </motion.div>
+        </div>
+      )}</AnimatePresence>
+
+      {/* Database Settings Modal */}
+      <AnimatePresence>{isDbSettingsOpen && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-slate-900/95 backdrop-blur-3xl no-print text-left">
+          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[4.5rem] p-16 w-full max-w-md space-y-12 shadow-5xl relative overflow-hidden text-center">
+            <h3 className="text-3xl font-black uppercase tracking-tight text-slate-900">Cloud Link / ตั้งค่าคลาวด์</h3>
+            <FormInput label="GAS Webhook URL / ลิงก์เชื่อมคลาวด์" value={sheetUrl} onChange={setSheetUrl} placeholder="https://script.google.com/..." />
+            <div className="space-y-5 pt-8">
+              <button onClick={() => { fetchFromSheet(); setIsDbSettingsOpen(false); }} className="w-full py-8 bg-emerald-600 text-white rounded-[3rem] font-black text-xs uppercase shadow-4xl hover:bg-emerald-700 flex items-center justify-center gap-5 active:scale-95"><RefreshCw size={22} /> Connect Now / เชื่อมต่อ</button>
+              <button onClick={() => setIsDbSettingsOpen(false)} className="w-full text-slate-300 font-black text-[12px] uppercase hover:text-rose-500 transition-colors tracking-widest">Close / ปิด</button>
             </div>
+          </motion.div>
+        </div>
+      )}</AnimatePresence>
+
+      {/* Admin Login Modal */}
+      <AnimatePresence>{isLoginModalOpen && (
+        <div className="fixed inset-0 z-[600] flex items-center justify-center p-6 bg-slate-900/98 backdrop-blur-3xl no-print text-left">
+          <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[5.5rem] p-16 w-full max-w-sm space-y-14 shadow-5xl relative overflow-hidden text-center">
+            <Lock size={64} className="mx-auto text-emerald-600 mb-10" />
+            <div className="space-y-4 text-center"><h3 className="text-4xl font-black uppercase tracking-tight text-slate-900">Admin Login / เข้าสู่ระบบ</h3><p className="text-[12px] font-black text-slate-400 uppercase tracking-[0.35em]">Authorized Personnel / เฉพาะเจ้าหน้าที่</p></div>
+            <form onSubmit={handleLogin} className="space-y-12">
+              <div className="space-y-7">
+                <FormInput label="Username / ชื่อผู้ใช้" value={loginForm.username} onChange={val => setLoginForm({...loginForm, username: val})} />
+                <FormInput label="Password / รหัสผ่าน" type="password" value={loginForm.password} onChange={val => setLoginForm({...loginForm, password: val})} />
+              </div>
+              {loginError && <p className="text-[12px] font-black text-rose-500 uppercase tracking-widest">{loginError}</p>}
+              <div className="space-y-6 pt-5">
+                <button type="submit" className="w-full py-8 bg-emerald-600 text-white rounded-[3rem] font-black text-xs uppercase shadow-5xl hover:bg-emerald-700 active:scale-95">Verify / ล็อกอิน</button>
+                <button type="button" onClick={() => setIsLoginModalOpen(false)} className="w-full text-slate-300 font-black text-[12px] uppercase hover:text-slate-900 transition-colors tracking-widest">Cancel / ยกเลิก</button>
+              </div>
+            </form>
           </motion.div>
         </div>
       )}</AnimatePresence>
@@ -750,48 +784,64 @@ const App: React.FC = () => {
   );
 };
 
-// Sub-components
-const MetricCard: React.FC<{ title: string; value: string; subtitle: string; icon: React.ElementType; color: 'indigo' | 'emerald' | 'purple' | 'amber' }> = ({ title, value, subtitle, icon: Icon, color }) => {
-  const themes = {
-    indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
-    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
-    purple: 'bg-purple-50 text-purple-600 border-purple-100',
-    amber: 'bg-red-50 text-red-600 border-red-100'
+// --- SUB-COMPONENTS ---
+const NavBtn: React.FC<{ icon: any; label: string; active: boolean; onClick: () => void }> = ({ icon: Icon, label, active, onClick }) => (
+  <button onClick={onClick} className={`w-full flex items-center gap-7 px-12 py-7 rounded-[3.5rem] transition-all border-2 ${active ? 'bg-emerald-600 border-emerald-500 text-white shadow-4xl scale-[1.06] z-10' : 'text-slate-500 border-transparent hover:bg-slate-800/90 hover:text-slate-200'}`}>
+    <Icon size={26} className={active ? 'animate-pulse' : ''} /> 
+    <span className="text-[15px] font-black uppercase tracking-tight text-left">{label}</span>
+  </button>
+);
+
+const MetricCard: React.FC<{ title: string; value: string; subtitle: string; icon: React.ElementType; color: 'emerald' | 'teal' | 'rose' | 'amber' }> = ({ title, value, subtitle, icon: Icon, color }) => {
+  const themes = { 
+    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-600/5', 
+    teal: 'bg-teal-50 text-teal-600 border-teal-100 shadow-teal-600/5', 
+    rose: 'bg-rose-50 text-rose-600 border-rose-100 shadow-rose-600/5', 
+    amber: 'bg-amber-50 text-amber-600 border-amber-100 shadow-amber-600/5' 
   };
   return (
-    <motion.div variants={bouncyItem} className="bg-white p-4 md:p-6 rounded-2xl md:rounded-[2rem] border shadow-md relative overflow-hidden group">
-      <div className={`p-2 md:p-3 rounded-lg inline-block mb-3 ${themes[color] || themes.indigo} border shadow-sm`}><Icon size={18} /></div>
-      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{title}</p>
-      <h4 className="text-lg md:text-xl font-black text-slate-900 truncate">{value}</h4>
-      <p className="text-[8px] text-slate-400 font-bold mt-1">{subtitle}</p>
+    <motion.div variants={bouncyItem} className="bg-white p-12 rounded-[3.5rem] border border-slate-100 shadow-3xl hover:shadow-5xl hover:-translate-y-2.5 text-left relative z-10">
+      <div className={`p-6 rounded-2xl inline-block mb-10 ${themes[color] || themes.emerald} border shadow-inner`}><Icon size={32} /></div>
+      <p className="text-[12px] font-black text-slate-400 uppercase mb-4 tracking-[0.25em] text-left">{title}</p>
+      <h4 className="text-5xl font-black text-slate-900 truncate tracking-tighter text-left">{value}</h4>
+      <p className="text-[11px] text-slate-400 font-black uppercase mt-5 opacity-70 text-left tracking-wide">{subtitle}</p>
     </motion.div>
   );
 };
 
-const FormInput: React.FC<{ label: string; value: string; onChange?: (val: string) => void; type?: string; placeholder?: string; readOnly?: boolean; showToggle?: boolean; isLocked?: boolean; onUnlock?: () => void; }> = ({ label, value, onChange, type = "text", placeholder, readOnly = false, showToggle = false, isLocked = false, onUnlock }) => {
-  const [internalVisible, setInternalVisible] = useState(false);
-  const inputType = showToggle ? (internalVisible && !isLocked ? "text" : "password") : type;
-  const handleToggle = () => { if (isLocked && !internalVisible) onUnlock?.(); else setInternalVisible(!internalVisible); };
-  return (
-    <div className="space-y-1.5">
-      <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
-      <div className="relative">
-        <input type={inputType} value={value || ''} onChange={e => onChange?.(e.target.value)} placeholder={placeholder} readOnly={readOnly} className={`w-full px-4 py-3 rounded-xl text-[12px] font-bold border outline-none focus:ring-[3px] transition-all ${readOnly ? 'bg-slate-50 border-slate-100 text-slate-400 shadow-inner' : 'bg-slate-50 border-slate-100 focus:bg-white shadow-sm'}`} />
-        {showToggle && (<button type="button" onClick={handleToggle} className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-indigo-600">{internalVisible && !isLocked ? <EyeOff size={14} /> : <Eye size={14} />}</button>)}
-      </div>
-    </div>
-  );
-};
+const FormInput: React.FC<{ label: string; value: string; onChange?: (val: string) => void; type?: string; placeholder?: string; required?: boolean; icon?: any; readOnly?: boolean }> = ({ label, value, onChange, type = "text", placeholder, required, icon: Icon, readOnly = false }) => (
+  <div className="space-y-5 text-left">
+    <label className="text-[12px] font-black text-slate-500 uppercase tracking-[0.25em] ml-8 flex items-center gap-4 text-left">{Icon && <Icon size={16} className="text-emerald-600" />}{label}</label>
+    <input type={type} value={value || ''} onChange={e => !readOnly && onChange?.(e.target.value)} placeholder={placeholder} required={required} readOnly={readOnly} className={`w-full px-9 py-7 ${readOnly ? 'bg-slate-100 text-slate-500 cursor-not-allowed font-black' : 'bg-slate-50 border-slate-100 focus:border-emerald-600 focus:bg-white'} border-2 rounded-[2.5rem] text-[16px] font-bold outline-none transition-all shadow-inner text-left`} />
+  </div>
+);
 
 const FormSelect: React.FC<{ label: string; value: string; options: string[]; onChange: (val: string) => void }> = ({ label, value, options, onChange }) => (
-  <div className="space-y-1.5">
-    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
+  <div className="space-y-5 text-left">
+    <label className="text-[12px] font-black text-slate-500 uppercase tracking-[0.25em] ml-8 text-left">{label}</label>
     <div className="relative">
-      <select value={value || ''} onChange={e => onChange(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border rounded-xl text-[12px] font-bold outline-none focus:ring-[3px] appearance-none cursor-pointer shadow-sm">
-        {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+      <select value={value || ''} onChange={e => onChange(e.target.value)} className="w-full px-9 py-7 bg-slate-50 border-2 border-slate-100 rounded-[2.5rem] text-[16px] font-bold outline-none appearance-none cursor-pointer focus:border-emerald-600 focus:bg-white shadow-inner transition-all text-left">
+        {options.map(opt => {
+          let display = opt;
+          if (opt === 'Computer') display = 'Computer / คอมพิวเตอร์';
+          else if (opt === 'Printer') display = 'Printer / เครื่องพิมพ์';
+          else if (opt === 'Completed') display = 'Completed / เสร็จสิ้น';
+          else if (opt === 'In Progress') display = 'In Progress / กำลังทำ';
+          else if (opt === 'Pending') display = 'Pending / รอทำ';
+          return <option key={opt} value={opt}>{display}</option>;
+        })}
       </select>
-      <ChevronRight size={14} className="absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
+      <ChevronRight size={24} className="absolute right-9 top-1/2 -translate-y-1/2 rotate-90 text-slate-400 pointer-events-none" />
     </div>
+  </div>
+);
+
+const DataField: React.FC<{ label: string; value: string; mono?: boolean; small?: boolean; icon?: React.ReactNode }> = ({ label, value, mono = false, small = false, icon }) => (
+  <div className="bg-slate-50/50 p-7 rounded-[2.5rem] border border-slate-100 shadow-sm text-left group hover:bg-white transition-all cursor-default">
+    <p className="text-[11px] font-black text-slate-400 uppercase mb-3 tracking-widest flex items-center gap-2 text-left">
+      <span className="w-2 h-2 bg-slate-300 rounded-full group-hover:bg-emerald-400 transition-colors"></span>{label}{icon && <span className="ml-auto text-emerald-400">{icon}</span>}
+    </p>
+    <p className={`font-black text-slate-800 truncate leading-none text-left ${mono ? 'font-mono text-[16px] tracking-tight' : small ? 'text-[13px]' : 'text-[15px]'}`}>{value || '-'}</p>
   </div>
 );
 

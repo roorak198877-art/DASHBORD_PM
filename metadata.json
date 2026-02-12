@@ -1,5 +1,7 @@
 {
-  "name": "PM Performance Dashboard",
+  "name": " PM Performance Dashboard1",
   "description": "An interactive Preventive Maintenance dashboard for tracking IT equipment maintenance across various departments, featuring key metrics, workload analysis, and data insights.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "camera"
+  ]
 }
