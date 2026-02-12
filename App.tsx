@@ -21,7 +21,6 @@ const COMPANY_NAME = 'TCITRENDGROUP';
 const LOGO_TEXT = 'T.T.g';
 const DEFAULT_GAS_URL = ''; 
 const SECURITY_PIN = '1234';
-// Change this URL to your desired external destination
 const EXIT_URL = 'https://tcitrendgroup.com'; 
 
 const CHART_COLORS = ['#065f46', '#0f172a', '#059669', '#1e293b', '#10b981', '#334155', '#34d399', '#064e3b'];
@@ -67,7 +66,6 @@ const calculateNextPM = (currentDate: string, device: 'Computer' | 'Printer'): s
 
 const SpinningGears = () => (
   <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 opacity-10">
-    {/* Gear 1: Top Right */}
     <motion.div 
       animate={{ rotate: 360, y: [0, -10, 0] }} 
       transition={{ rotate: { repeat: Infinity, duration: 20, ease: "linear" }, y: { repeat: Infinity, duration: 4, ease: "easeInOut" } }}
@@ -75,8 +73,6 @@ const SpinningGears = () => (
     >
       <Settings size={200} strokeWidth={1} />
     </motion.div>
-
-    {/* Gear 2: Bottom Left (New) */}
     <motion.div 
       animate={{ rotate: -360, scale: [1, 1.1, 1] }} 
       transition={{ rotate: { repeat: Infinity, duration: 25, ease: "linear" }, scale: { repeat: Infinity, duration: 6, ease: "easeInOut" } }}
@@ -84,14 +80,27 @@ const SpinningGears = () => (
     >
       <Settings size={280} strokeWidth={0.5} />
     </motion.div>
-
-    {/* Gear 3: Center Bottom (New) */}
     <motion.div 
       animate={{ rotate: 360, x: [0, 15, 0] }} 
       transition={{ rotate: { repeat: Infinity, duration: 18, ease: "linear" }, x: { repeat: Infinity, duration: 5, ease: "easeInOut" } }}
       className="absolute bottom-40 right-1/4 text-emerald-700 opacity-50"
     >
       <Settings size={120} strokeWidth={1} />
+    </motion.div>
+    {/* Added 2 more gears as requested */}
+    <motion.div 
+      animate={{ rotate: -360, y: [0, 20, 0] }} 
+      transition={{ rotate: { repeat: Infinity, duration: 30, ease: "linear" }, y: { repeat: Infinity, duration: 7, ease: "easeInOut" } }}
+      className="absolute top-1/2 -left-10 text-emerald-600 opacity-20"
+    >
+      <Settings size={160} strokeWidth={0.8} />
+    </motion.div>
+    <motion.div 
+      animate={{ rotate: 360, scale: [0.8, 1, 0.8] }} 
+      transition={{ rotate: { repeat: Infinity, duration: 22, ease: "linear" }, scale: { repeat: Infinity, duration: 5, ease: "easeInOut" } }}
+      className="absolute top-1/4 right-1/3 text-emerald-500 opacity-10"
+    >
+      <Settings size={90} strokeWidth={1.2} />
     </motion.div>
   </div>
 );
@@ -216,14 +225,32 @@ const App: React.FC = () => {
     if (!sheetUrl) return;
     try {
       setSyncMessage("Cloud Syncing / กำลังซิงค์...");
+      // Exact sequence A-V (Indices 0-21) to match GAS setupSheet HEADERS
       const values = [
-        item.id, item.date, item.nextPmDate || '', item.department, item.device,
-        item.personnel || '', item.status || 'Pending', item.activity || '', item.computerName || '',
-        item.computerUser || '', item.password || '', item.serverPassword || '', item.antivirus || '',
-        item.imageUrl || '', item.technician || '', item.startDate || '', item.warrantyExpiry || '',
-        item.notes || '', item.assetName || '', item.modelSpec || '', item.serialNumber || '',
-        item.location || ''
+        item.id,               // A: id
+        item.date,             // B: date
+        item.nextPmDate || '', // C: nextPmDate
+        item.department,       // D: department
+        item.device,           // E: device
+        item.personnel || '',  // F: personnel
+        item.status || 'Pending', // G: status
+        item.activity || '',   // H: activity
+        item.computerName || '', // I: computerName
+        item.computerUser || '', // J: computerUser
+        item.password || '',     // K: password
+        item.serverPassword || '', // L: serverPassword
+        item.antivirus || '',    // M: antivirus
+        item.imageUrl || '',     // N: imageUrl
+        item.technician || '',   // O: technician
+        item.startDate || '',    // P: startDate
+        item.warrantyExpiry || '', // Q: warrantyExpiry
+        item.notes || '',        // R: notes
+        item.assetName || '',    // S: assetName
+        item.modelSpec || '',    // T: modelSpec
+        item.serialNumber || '', // U: serialNumber
+        item.location || ''      // V: location
       ];
+
       await fetch(sheetUrl, { 
         method: 'POST', 
         mode: 'no-cors', 
@@ -246,24 +273,45 @@ const App: React.FC = () => {
       if (res.ok) { 
         const data = await res.json(); 
         if (Array.isArray(data)) {
-          const mapped: PMItem[] = data.map(row => {
-            if (!row || !row[0]) return null;
+          // IMPORTANT: Mapping based on Object Keys from GAS doGet()
+          const mapped: PMItem[] = data.map(obj => {
+            if (!obj || !obj.id) return null;
             return {
-              id: String(row[0]).trim(), date: row[1], nextPmDate: row[2], department: row[3],
-              device: row[4], personnel: row[5], status: row[6], activity: row[7],
-              computerName: row[8], computerUser: row[9], password: row[10], serverPassword: row[11],
-              antivirus: row[12], imageUrl: row[13], technician: row[14], startDate: row[15] || '',
-              warrantyExpiry: row[16] || '', notes: row[17] || '', assetName: row[18] || '',
-              modelSpec: row[19] || '', serialNumber: row[20] || '', location: row[21] || '',
-              deviceStatus: row[7]?.includes('Broken') ? 'Broken' : 'Ready'
+              id: String(obj.id).trim(),
+              date: obj.date || '',
+              nextPmDate: obj.nextPmDate || '',
+              department: obj.department || '',
+              device: obj.device || 'Computer',
+              personnel: obj.personnel || '',
+              status: obj.status || 'Pending',
+              activity: obj.activity || '',
+              computerName: obj.computerName || '',
+              computerUser: obj.computerUser || '',
+              password: obj.password || '',
+              serverPassword: obj.serverPassword || '',
+              antivirus: obj.antivirus || '',
+              imageUrl: obj.imageUrl || '',
+              technician: obj.technician || '',
+              startDate: obj.startDate || '',
+              warrantyExpiry: obj.warrantyExpiry || '',
+              notes: obj.notes || '',
+              assetName: obj.assetName || '',
+              modelSpec: obj.modelSpec || '',
+              serialNumber: obj.serialNumber || '',
+              location: obj.location || '',
+              deviceStatus: obj.activity?.includes('Broken') ? 'Broken' : 'Ready'
             };
           }).filter(i => i !== null) as PMItem[];
+          
           setItems(mapped); 
           setIsCloudConnected(true);
           if (!silent) setSyncMessage('Data Synced / ซิงค์ข้อมูลสำเร็จ');
         }
       }
-    } catch (err) { setIsCloudConnected(false); } finally { 
+    } catch (err) { 
+      console.error("Fetch Error:", err);
+      setIsCloudConnected(false); 
+    } finally { 
       setIsSyncing(false); 
       setTimeout(() => setSyncMessage(null), 2000); 
     }
@@ -815,7 +863,7 @@ const MetricCard: React.FC<{ title: string; value: string; subtitle: string; ico
   const themes = { 
     emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-600/5', 
     teal: 'bg-teal-50 text-teal-600 border-teal-100 shadow-teal-600/5', 
-    rose: 'bg-rose-50 text-rose-600 border-rose-100 shadow-rose-600/5', 
+    rose: 'bg-rose-50 text-rose-600 border-rose-100 shadow-rose-100/5', 
     amber: 'bg-amber-50 text-amber-600 border-amber-100 shadow-amber-600/5' 
   };
   return (
