@@ -10,7 +10,7 @@ import {
   Activity, Lock, PrinterIcon, ShieldAlert, Loader2, ChevronRight, 
   Download, Camera, Image as ImageIcon, Upload, Database, Globe, Eye, EyeOff,
   AlertCircle, Calendar, Info, ArrowLeft, ShieldCheck, MapPin, Tag, Cpu, Hash, Key,
-  Menu, Server, Search, WifiOff, Copy, Link as LinkIcon
+  Menu, Server, Search, WifiOff, Copy, Link as LinkIcon, ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { INITIAL_PM_DATA, DEPARTMENTS, COMPUTER_STANDARD_ACTIVITIES, PRINTER_STANDARD_ACTIVITIES } from './constants';
@@ -21,6 +21,8 @@ const COMPANY_NAME = 'TCITRENDGROUP';
 const LOGO_TEXT = 'T.T.g';
 const DEFAULT_GAS_URL = ''; 
 const SECURITY_PIN = '1234';
+// Change this URL to your desired external destination
+const EXIT_URL = 'https://tcitrendgroup.com'; 
 
 const CHART_COLORS = ['#065f46', '#0f172a', '#059669', '#1e293b', '#10b981', '#334155', '#34d399', '#064e3b'];
 const bouncySpring = { type: "spring" as const, stiffness: 400, damping: 25 };
@@ -71,13 +73,6 @@ const SpinningGears = () => (
       className="absolute -top-10 -right-10 text-emerald-900"
     >
       <Settings size={200} strokeWidth={1} />
-    </motion.div>
-    <motion.div 
-      animate={{ rotate: -360, y: [0, 15, 0] }} 
-      transition={{ rotate: { repeat: Infinity, duration: 15, ease: "linear" }, y: { repeat: Infinity, duration: 5, ease: "easeInOut" } }}
-      className="absolute top-20 -right-20 text-emerald-700"
-    >
-      <Settings size={150} strokeWidth={1} />
     </motion.div>
   </div>
 );
@@ -202,36 +197,19 @@ const App: React.FC = () => {
     if (!sheetUrl) return;
     try {
       setSyncMessage("Cloud Syncing / กำลังซิงค์...");
-      // Exact sequence of 22 items (A-V)
-      const payload = [
-        item.id,               // A: index 0
-        item.date,             // B: index 1
-        item.nextPmDate || '', // C: index 2
-        item.department,       // D: index 3
-        item.device,           // E: index 4
-        item.personnel,        // F: index 5
-        item.status,           // G: index 6
-        item.activity || '',   // H: index 7
-        item.computerName || '', // I: index 8
-        item.computerUser || '', // J: index 9
-        item.password || '',     // K: index 10
-        item.serverPassword || '', // L: index 11
-        item.antivirus || '',    // M: index 12
-        item.imageUrl || '',     // N: index 13
-        item.technician || '',   // O: index 14
-        item.startDate || '',    // P: index 15
-        item.warrantyExpiry || '', // Q: index 16
-        item.spareField || '',     // R: index 17 (Notes)
-        item.assetName || '',      // S: index 18
-        item.model || '',          // T: index 19
-        item.serialNumber || '',   // U: index 20
-        item.location || ''        // V: index 21
+      const values = [
+        item.id, item.date, item.nextPmDate || '', item.department, item.device,
+        item.personnel || '', item.status || 'Pending', item.activity || '', item.computerName || '',
+        item.computerUser || '', item.password || '', item.serverPassword || '', item.antivirus || '',
+        item.imageUrl || '', item.technician || '', item.startDate || '', item.warrantyExpiry || '',
+        item.notes || '', item.assetName || '', item.modelSpec || '', item.serialNumber || '',
+        item.location || ''
       ];
       await fetch(sheetUrl, { 
         method: 'POST', 
         mode: 'no-cors', 
         headers: { 'Content-Type': 'text/plain' }, 
-        body: JSON.stringify({ values: payload }) 
+        body: JSON.stringify({ values }) 
       });
       setSyncMessage("Sync Success / บันทึกสำเร็จ");
       setIsCloudConnected(true);
@@ -252,28 +230,12 @@ const App: React.FC = () => {
           const mapped: PMItem[] = data.map(row => {
             if (!row || !row[0]) return null;
             return {
-              id: String(row[0]).trim(), // A
-              date: row[1],             // B
-              nextPmDate: row[2],       // C
-              department: row[3],       // D
-              device: row[4],           // E
-              personnel: row[5],        // F
-              status: row[6],           // G
-              activity: row[7],         // H
-              computerName: row[8],     // I
-              computerUser: row[9],     // J
-              password: row[10],        // K
-              serverPassword: row[11],  // L
-              antivirus: row[12],       // M
-              imageUrl: row[13],        // N
-              technician: row[14],      // O
-              startDate: row[15] || '', // P
-              warrantyExpiry: row[16] || '', // Q
-              spareField: row[17] || '', // R
-              assetName: row[18] || '',  // S
-              model: row[19] || '',      // T
-              serialNumber: row[20] || '', // U
-              location: row[21] || '',     // V
+              id: String(row[0]).trim(), date: row[1], nextPmDate: row[2], department: row[3],
+              device: row[4], personnel: row[5], status: row[6], activity: row[7],
+              computerName: row[8], computerUser: row[9], password: row[10], serverPassword: row[11],
+              antivirus: row[12], imageUrl: row[13], technician: row[14], startDate: row[15] || '',
+              warrantyExpiry: row[16] || '', notes: row[17] || '', assetName: row[18] || '',
+              modelSpec: row[19] || '', serialNumber: row[20] || '', location: row[21] || '',
               deviceStatus: row[7]?.includes('Broken') ? 'Broken' : 'Ready'
             };
           }).filter(i => i !== null) as PMItem[];
@@ -348,12 +310,11 @@ const App: React.FC = () => {
     });
   };
 
-  // --- PUBLIC ASSET VIEW (หน้าแสดงผลเมื่อสแกน) ---
+  // --- PUBLIC ASSET VIEW (Scan Result) ---
   if (publicViewId) {
     if (isLoading) {
       return (
         <div className="min-h-screen bg-[#f1f5f9] flex flex-col items-center justify-center p-4">
-          <SpinningGears />
           <Loader2 size={40} className="text-emerald-600 animate-spin mb-4" />
           <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">Verifying Data / กำลังตรวจสอบข้อมูล...</p>
         </div>
@@ -367,9 +328,7 @@ const App: React.FC = () => {
           <motion.div initial="hidden" animate="visible" variants={modalAnimate} className="w-full max-w-md bg-white rounded-[3rem] shadow-4xl border border-slate-200 overflow-hidden relative z-10 text-left">
             <div className={`p-10 text-white ${publicItem.status === 'Completed' ? 'bg-gradient-to-br from-emerald-600 to-emerald-900' : 'bg-amber-500'}`}>
               <div className="flex items-center gap-4 mb-4">
-                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md border border-white/30">
-                  <ShieldCheck size={28} className="text-white" />
-                </div>
+                <ShieldCheck size={28} className="text-white" />
                 <div className="flex-1">
                   <h2 className="text-xl font-black uppercase tracking-tight">Verified Asset / ข้อมูลทรัพย์สิน</h2>
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">{COMPANY_NAME}</p>
@@ -413,16 +372,6 @@ const App: React.FC = () => {
                 </form>
               )}
 
-              {publicItem.location && (
-                <div className="p-6 bg-emerald-50 rounded-[2rem] border border-emerald-100 flex items-center gap-4 text-left">
-                  <MapPin size={22} className="text-emerald-600" />
-                  <div>
-                    <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest text-left">Location / ตำแหน่ง</p>
-                    <p className="text-[13px] font-black text-emerald-900 text-left">{publicItem.location}</p>
-                  </div>
-                </div>
-              )}
-
               <div className="p-7 bg-slate-50 rounded-[2.5rem] border border-slate-100 text-left">
                 <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-4">PM Records / บันทึกการทำ (H)</p>
                 <div className="space-y-3">
@@ -434,8 +383,11 @@ const App: React.FC = () => {
                 </div>
               </div>
               
-              <button onClick={() => { window.location.href = appBaseUrl; }} className="w-full py-5 bg-rose-500 text-white rounded-[2rem] font-black text-[12px] uppercase shadow-xl hover:bg-rose-600 transition-all flex items-center justify-center gap-3 active:scale-95 mt-6 mb-2">
-                <ArrowLeft size={18} /> Home / กลับหน้าหลัก
+              <button 
+                onClick={() => { window.location.href = EXIT_URL; }} 
+                className="w-full py-5 bg-slate-800 text-white rounded-[2rem] font-black text-[12px] uppercase shadow-xl hover:bg-black transition-all flex items-center justify-center gap-3 active:scale-95 mt-6 mb-2"
+              >
+                <ExternalLink size={18} /> Company Web / กลับสู่หน้าหลักบริษัท
               </button>
             </div>
           </motion.div>
@@ -452,8 +404,11 @@ const App: React.FC = () => {
                 <button onClick={() => { setIsLoading(true); fetchFromSheet().then(() => setIsLoading(false)); }} className="w-full px-8 py-6 bg-emerald-600 text-white rounded-[2.5rem] font-black text-[11px] uppercase tracking-widest flex items-center justify-center gap-3 shadow-4xl">
                   <RefreshCw size={18} className={isSyncing ? "animate-spin" : ""}/> Sync & Retry / ซิงค์ข้อมูลใหม่
                 </button>
-                <button onClick={() => window.location.href = appBaseUrl} className="w-full py-5 text-slate-400 font-black text-[11px] uppercase tracking-widest hover:text-emerald-600 transition-colors">
-                  Back / กลับหน้าหลัก
+                <button 
+                  onClick={() => { window.location.href = EXIT_URL; }} 
+                  className="w-full py-5 text-slate-400 font-black text-[11px] uppercase tracking-widest hover:text-emerald-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <ExternalLink size={16} /> Exit / กลับหน้าหลักบริษัท
                 </button>
             </div>
           </motion.div>
@@ -542,7 +497,7 @@ const App: React.FC = () => {
           <div className="flex gap-5 w-full lg:w-auto">
             <button onClick={() => { 
               if(userRole !== 'admin') return setIsLoginModalOpen(true);
-              setEditingItem({ id: '', date: new Date().toISOString(), department: DEPARTMENTS[0], device: pmModule === 'computer' ? 'Computer' : 'Printer', personnel: '', technician: '', status: 'Pending', activity: '', computerName: '', computerUser: '', password: '', serverPassword: '', antivirus: '', startDate: '', warrantyExpiry: '', spareField: '', imageUrl: '', assetName: '', model: '', serialNumber: '', location: '' }); 
+              setEditingItem({ id: '', date: new Date().toISOString(), department: DEPARTMENTS[0], device: pmModule === 'computer' ? 'Computer' : 'Printer', personnel: '', technician: '', status: 'Pending', activity: '', computerName: '', computerUser: '', password: '', serverPassword: '', antivirus: '', startDate: '', warrantyExpiry: '', notes: '', imageUrl: '', assetName: '', modelSpec: '', serialNumber: '', location: '' }); 
               setIsModalOpen(true); 
             }} className="flex-1 lg:flex-none flex items-center justify-center gap-5 px-12 py-6 bg-emerald-600 text-white rounded-[2.5rem] font-black shadow-4xl text-[14px] uppercase hover:scale-95 transition-all">
               <Plus size={22} /> New Asset / ลงทะเบียนใหม่
@@ -614,7 +569,7 @@ const App: React.FC = () => {
                       <td className="px-14 py-12">
                         <div className="text-left">
                           <p className="font-black text-slate-800 text-[18px] tracking-tight">{it.assetName || it.computerName || it.id}</p>
-                          <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest mt-1.5">{it.id} | {it.model || '-'}</p>
+                          <p className="text-[11px] text-slate-400 font-black uppercase tracking-widest mt-1.5">{it.id} | {it.modelSpec || '-'}</p>
                         </div>
                       </td>
                       <td className="px-14 py-12">
@@ -650,7 +605,7 @@ const App: React.FC = () => {
         </AnimatePresence>
       </main>
 
-      {/* Asset Edit/Create Modal */}
+      {/* Asset Edit Modal */}
       <AnimatePresence>{isModalOpen && editingItem && (
         <div className="fixed inset-0 z-[500] flex items-end md:items-center justify-center bg-slate-900/85 backdrop-blur-xl overflow-y-auto pt-14 text-left">
           <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-t-[4.5rem] md:rounded-[4.5rem] w-full max-w-7xl overflow-hidden flex flex-col max-h-[94vh] shadow-5xl text-left border border-slate-200">
@@ -659,7 +614,7 @@ const App: React.FC = () => {
                 <div className="p-5 bg-emerald-600 text-white rounded-[2.5rem] shadow-4xl"><Wrench size={34} /></div>
                 <div className="text-left">
                   <h3 className="text-3xl font-black uppercase tracking-tight text-slate-900">{editingItem.id ? 'Modify Asset / แก้ไขข้อมูล' : 'New Asset / ลงทะเบียนใหม่'}</h3>
-                  <p className="text-[12px] font-black text-slate-400 uppercase tracking-[0.3em] mt-2">Ref ID / รหัสอ้างอิง: {editingItem.id || 'NEW'}</p>
+                  <p className="text-[12px] font-black text-slate-400 uppercase tracking-[0.3em] mt-2">Ref ID: {editingItem.id || 'NEW'}</p>
                 </div>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="p-6 bg-slate-50 text-slate-400 rounded-3xl active:scale-90 shadow-sm"><X size={32} /></button>
@@ -668,14 +623,14 @@ const App: React.FC = () => {
             <form onSubmit={handleSave} className="p-14 space-y-16 overflow-y-auto pb-40 text-left no-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-14 text-left">
                  <div className="md:col-span-1 space-y-5 text-left">
-                    <label className="text-[12px] font-black text-slate-500 uppercase tracking-[0.25em] ml-8 flex items-center gap-4 text-left"><ImageIcon size={18} className="text-emerald-600"/> Asset Image / รูปภาพ (P)</label>
+                    <label className="text-[12px] font-black text-slate-500 uppercase tracking-[0.25em] ml-8 flex items-center gap-4 text-left"><ImageIcon size={18} className="text-emerald-600"/> Asset Image (N)</label>
                     <div className="aspect-square bg-slate-50 border-4 border-dashed border-slate-200 rounded-[5rem] flex flex-col items-center justify-center overflow-hidden group relative shadow-inner">
                        {editingItem.imageUrl ? (
                          <>
                            <img src={editingItem.imageUrl} className="w-full h-full object-cover" alt="Proof" />
                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-8">
-                              <button type="button" onClick={() => cameraInputRef.current?.click()} className="p-6 bg-emerald-600 text-white rounded-full shadow-5xl"><Camera size={36} /></button>
-                              <button type="button" onClick={() => fileInputRef.current?.click()} className="p-6 bg-white text-emerald-600 rounded-full shadow-5xl"><Upload size={36} /></button>
+                              <button type="button" onClick={() => cameraInputRef.current?.click()} className="p-6 bg-emerald-600 text-white rounded-full"><Camera size={36} /></button>
+                              <button type="button" onClick={() => fileInputRef.current?.click()} className="p-6 bg-white text-emerald-600 rounded-full"><Upload size={36} /></button>
                            </div>
                          </>
                        ) : (
@@ -684,7 +639,7 @@ const App: React.FC = () => {
                                <button type="button" onClick={() => cameraInputRef.current?.click()} className="p-7 bg-white text-emerald-600 rounded-[3rem] shadow-4xl"><Camera size={48} /></button>
                                <button type="button" onClick={() => fileInputRef.current?.click()} className="p-7 bg-white text-emerald-600 rounded-[3rem] shadow-4xl"><Upload size={48} /></button>
                             </div>
-                            <span className="text-[12px] font-black text-slate-300 uppercase tracking-[0.4em]">Capture/Upload / ถ่ายภาพ</span>
+                            <span className="text-[12px] font-black text-slate-300 uppercase tracking-[0.4em]">Capture/Upload</span>
                          </div>
                        )}
                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
@@ -694,46 +649,46 @@ const App: React.FC = () => {
 
                  <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-10 text-left">
                     <FormInput label="Asset ID / รหัสทรัพย์สิน (A)" icon={Hash} value={editingItem.id} onChange={val => setEditingItem({...editingItem, id: val})} required placeholder="Ex: TC-2568-001" />
-                    <FormInput label="Last PM / ทำล่าสุด (B)" type="date" value={toISODate(editingItem.date)} onChange={val => setEditingItem({...editingItem, date: val})} />
+                    <FormInput label="Last PM / ทำล่าสุด (B)" type="date" value={toISODate(editingItem.date)} onChange={val => setEditingItem({...editingItem, date: val})} required />
                     <FormInput label="Next PM / ครั้งหน้า (C)" value={formatDateDisplay(calculateNextPM(editingItem.date, editingItem.device))} readOnly icon={Calendar} />
-                    <FormInput label="Asset Name / ชื่อเรียก" icon={Tag} value={editingItem.assetName || ''} onChange={val => setEditingItem({...editingItem, assetName: val})} placeholder="Ex: Financial PC 04" />
-                    <FormInput label="Spec / รุ่น / สเปก" icon={Cpu} value={editingItem.model || ''} onChange={val => setEditingItem({...editingItem, model: val})} placeholder="Ex: Dell OptiPlex 7000" />
-                    <FormInput label="S/N / ซีเรียล" value={editingItem.serialNumber || ''} onChange={val => setEditingItem({...editingItem, serialNumber: val})} placeholder="Ex: SN-1234-ABCD" />
-                    <FormInput label="Location / สถานที่" icon={MapPin} value={editingItem.location || ''} onChange={val => setEditingItem({...editingItem, location: val})} placeholder="Ex: Account Room Fl.2" />
-                    <FormSelect label="Main Dept / แผนกหลัก (D)" value={editingItem.department} options={DEPARTMENTS} onChange={val => setEditingItem({...editingItem, department: val})} />
+                    <FormInput label="Asset Name / ชื่อเรียก (S)" icon={Tag} value={editingItem.assetName || ''} onChange={val => setEditingItem({...editingItem, assetName: val})} placeholder="Ex: Finance PC" />
+                    <FormInput label="Spec / รุ่น (T)" icon={Cpu} value={editingItem.modelSpec || ''} onChange={val => setEditingItem({...editingItem, modelSpec: val})} />
+                    <FormInput label="Serial No. (U)" value={editingItem.serialNumber || ''} onChange={val => setEditingItem({...editingItem, serialNumber: val})} />
+                    <FormInput label="Location / สถานที่ (V)" icon={MapPin} value={editingItem.location || ''} onChange={val => setEditingItem({...editingItem, location: val})} />
+                    <FormSelect label="Department / แผนก (D)" value={editingItem.department} options={DEPARTMENTS} onChange={val => setEditingItem({...editingItem, department: val})} />
                     <FormSelect label="Device Type / ประเภท (E)" value={editingItem.device} options={['Computer', 'Printer']} onChange={val => setEditingItem({...editingItem, device: val as any})} />
                  </div>
               </div>
 
-              {/* Access & Security (J-M) */}
+              {/* Security */}
               <div className="space-y-10 text-left">
-                <div className="flex items-center gap-5"><div className="w-2.5 h-10 bg-emerald-600 rounded-full shadow-lg"></div><h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Security & Access / ความปลอดภัย (J-M)</h4></div>
+                <div className="flex items-center gap-5"><div className="w-2.5 h-10 bg-emerald-600 rounded-full"></div><h4 className="text-xl font-black text-slate-900 uppercase">Access & Security / ความปลอดภัย (J-M)</h4></div>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-10 text-left">
-                   <FormInput label="Login User / ชื่อล็อกอิน (J)" icon={Lock} value={editingItem.computerUser || ''} onChange={val => setEditingItem({...editingItem, computerUser: val})} />
-                   <FormInput label="PC Pass / รหัสเครื่อง (K)" icon={Key} type="password" value={editingItem.password || ''} onChange={val => setEditingItem({...editingItem, password: val})} />
-                   <FormInput label="Srv Pass / รหัสเซิร์ฟเวอร์ (L)" icon={Key} type="password" value={editingItem.serverPassword || ''} onChange={val => setEditingItem({...editingItem, serverPassword: val})} />
-                   <FormInput label="Antivirus / แอนตี้ไวรัส (M)" icon={ShieldCheck} value={editingItem.antivirus || ''} onChange={val => setEditingItem({...editingItem, antivirus: val})} />
+                   <FormInput label="Login User (J)" icon={Lock} value={editingItem.computerUser || ''} onChange={val => setEditingItem({...editingItem, computerUser: val})} />
+                   <FormInput label="PC Pass (K)" icon={Key} type="password" value={editingItem.password || ''} onChange={val => setEditingItem({...editingItem, password: val})} />
+                   <FormInput label="Server Pass (L)" icon={Key} type="password" value={editingItem.serverPassword || ''} onChange={val => setEditingItem({...editingItem, serverPassword: val})} />
+                   <FormInput label="Antivirus (M)" icon={ShieldCheck} value={editingItem.antivirus || ''} onChange={val => setEditingItem({...editingItem, antivirus: val})} />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-10 text-left">
-                 <FormInput label="Personnel / ผู้ใช้ประจำ (F)" value={editingItem.personnel || ''} onChange={val => setEditingItem({...editingItem, personnel: val})} placeholder="Employee Name" />
-                 <FormInput label="Technician / ช่าง (O)" value={editingItem.technician || ''} onChange={val => setEditingItem({...editingItem, technician: val})} placeholder="IT Staff" />
-                 <FormInput label="Hostname / ชื่อเครื่อง (I)" value={editingItem.computerName || ''} onChange={val => setEditingItem({...editingItem, computerName: val})} placeholder="DNS Hostname" />
+                 <FormInput label="User / ผู้ใช้ (F)" value={editingItem.personnel || ''} onChange={val => setEditingItem({...editingItem, personnel: val})} />
+                 <FormInput label="Technician / ช่าง (O)" value={editingItem.technician || ''} onChange={val => setEditingItem({...editingItem, technician: val})} />
+                 <FormInput label="Hostname (I)" value={editingItem.computerName || ''} onChange={val => setEditingItem({...editingItem, computerName: val})} />
               </div>
 
               <div className="space-y-10 text-left">
-                <div className="flex items-center gap-5"><div className="w-2.5 h-10 bg-slate-400 rounded-full shadow-lg"></div><h4 className="text-xl font-black text-slate-900 uppercase tracking-tight">Lifecycle / ข้อมูลประกันและรอบซ่อม</h4></div>
+                <div className="flex items-center gap-5"><div className="w-2.5 h-10 bg-slate-400 rounded-full"></div><h4 className="text-xl font-black text-slate-900 uppercase">Lifecycle & Maintenance (P-R)</h4></div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-10 text-left">
-                   <FormInput label="Start Date / วันเริ่มใช้" type="date" value={toISODate(editingItem.startDate)} onChange={val => setEditingItem({...editingItem, startDate: val})} />
-                   <FormInput label="Warranty / วันหมดประกัน" type="date" value={toISODate(editingItem.warrantyExpiry)} onChange={val => setEditingItem({...editingItem, warrantyExpiry: val})} />
-                   <FormSelect label="Status / สถานะการซ่อม (G)" value={editingItem.status} options={['Pending', 'In Progress', 'Completed']} onChange={val => setEditingItem({...editingItem, status: val as any})} />
+                   <FormInput label="Start Date (P)" type="date" value={toISODate(editingItem.startDate)} onChange={val => setEditingItem({...editingItem, startDate: val})} />
+                   <FormInput label="Warranty (Q)" type="date" value={toISODate(editingItem.warrantyExpiry)} onChange={val => setEditingItem({...editingItem, warrantyExpiry: val})} />
+                   <FormSelect label="Status (G)" value={editingItem.status || 'Pending'} options={['Pending', 'In Progress', 'Completed']} onChange={val => setEditingItem({...editingItem, status: val as any})} />
                 </div>
-                <FormInput label="Notes / อะไหล่ / หมายเหตุ" value={editingItem.spareField || ''} onChange={val => setEditingItem({...editingItem, spareField: val})} placeholder="Spare parts or notes..." />
+                <FormInput label="Notes / อะไหล่ (R)" value={editingItem.notes || ''} onChange={val => setEditingItem({...editingItem, notes: val})} />
               </div>
 
               <div className="space-y-10 text-left">
-                <label className="text-[12px] font-black text-slate-500 uppercase tracking-[0.3em] ml-8 flex items-center gap-4 text-left"><CheckSquare size={20} className="text-emerald-600" /> PM Checklist / รายการตรวจสอบ (H)</label>
+                <label className="text-[12px] font-black text-slate-500 uppercase tracking-[0.3em] ml-8 flex items-center gap-4 text-left"><CheckSquare size={20} className="text-emerald-600" /> PM Checklist (H)</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-12 bg-slate-50 rounded-[4rem] border border-slate-100 shadow-inner text-left">
                   {(editingItem.device === 'Computer' ? COMPUTER_STANDARD_ACTIVITIES : PRINTER_STANDARD_ACTIVITIES).map((act, i) => {
                     const isChecked = String(editingItem.activity || '').includes(act);
@@ -754,8 +709,8 @@ const App: React.FC = () => {
 
               <div className="bg-emerald-50 p-12 rounded-[4.5rem] border-2 border-emerald-100/60 flex flex-col md:flex-row items-center justify-between gap-12 shadow-inner text-left">
                 <div className="text-left w-full md:w-auto">
-                  <p className="text-[12px] font-black text-emerald-600 uppercase mb-4 tracking-[0.3em] text-left">Calculated Next PM / กำหนดการรอบหน้า</p>
-                  <p className="text-5xl font-black text-emerald-900 tracking-tighter text-left">{editingItem.status === 'Completed' ? formatDateDisplay(calculateNextPM(editingItem.date, editingItem.device)) : 'VALUATION PENDING / รอผล'}</p>
+                  <p className="text-[12px] font-black text-emerald-600 uppercase mb-4 tracking-[0.3em] text-left">Next PM Forecast / รอบถัดไป</p>
+                  <p className="text-5xl font-black text-emerald-900 tracking-tighter text-left">{editingItem.status === 'Completed' ? formatDateDisplay(calculateNextPM(editingItem.date, editingItem.device)) : 'PENDING ACTION'}</p>
                 </div>
                 <div className="flex gap-8 w-full md:w-auto">
                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-14 py-7 bg-white text-slate-400 rounded-[3rem] font-black text-xs uppercase hover:text-rose-500 border border-slate-100 shadow-2xl">Cancel / ยกเลิก</button>
@@ -791,6 +746,7 @@ const App: React.FC = () => {
         </div>
       )}</AnimatePresence>
 
+      {/* Database Settings Modal */}
       <AnimatePresence>{isDbSettingsOpen && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center p-6 bg-slate-900/95 backdrop-blur-3xl no-print text-left">
           <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[4.5rem] p-16 w-full max-w-md space-y-12 shadow-5xl relative overflow-hidden text-center">
@@ -804,6 +760,7 @@ const App: React.FC = () => {
         </div>
       )}</AnimatePresence>
 
+      {/* Admin Login Modal */}
       <AnimatePresence>{isLoginModalOpen && (
         <div className="fixed inset-0 z-[600] flex items-center justify-center p-6 bg-slate-900/98 backdrop-blur-3xl no-print text-left">
           <motion.div initial="hidden" animate="visible" exit="exit" variants={modalAnimate} className="bg-white rounded-[5.5rem] p-16 w-full max-w-sm space-y-14 shadow-5xl relative overflow-hidden text-center">

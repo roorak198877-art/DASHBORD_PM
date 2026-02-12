@@ -1,3 +1,4 @@
+
 import { PMItem } from './types';
 
 export const DEPARTMENTS = [
@@ -28,58 +29,42 @@ export const DEVICE_STATUS_OPTIONS = [
 ];
 
 export const COMPUTER_STANDARD_ACTIVITIES = [
-  "Hardware Check / ตรวจสอบฮาร์ดแวร์ (6M)",
-  "OS Update / ระบบปฏิบัติการ (6M)",
-  "Security Scan / ความปลอดภัย (6M)",
-  "Performance Tuning / ประสิทธิภาพ (6M)",
-  "Data Backup / สำรองข้อมูล (6M)",
-  "Network Testing / ระบบเครือข่าย (6M)",
-  "Cleanup Junk Files / ไฟล์ขยะ (6M)"
+  "1. Clean Screen, Keyboard, Mouse / เช็ดจอ, คีย์บอร์ด, เมาส์",
+  "2. Windows & Office Check / ตรวจเช็คระบบ Windows และ Office",
+  "3. Antivirus Scan / ตรวจเช็คแอนตี้ไวรัส",
+  "4. Disk & RAM Check / ตรวจเช็ค Disk และ RAM",
+  "5. Data Backup / สำรองข้อมูลสำคัญ",
+  "6. Network & Cable Check / ตรวจเช็คระบบเครือข่ายและสายสัญญาณ",
+  "7. Disk Cleanup & Cache / ลบไฟล์ขยะและแคช"
 ];
 
 export const PRINTER_STANDARD_ACTIVITIES = [
-  "Usage Check / ตรวจสอบการใช้งาน (2M)",
-  "External Cleaning / ทำความสะอาดภายนอก (2M)",
-  "Roller Check / ตรวจสอบลูกล้อ (2M)",
-  "Nozzle Check / ตรวจสอบหัวพิมพ์ (2M)",
-  "Head Alignment / จัดตำแหน่งหัวพิมพ์ (2M)",
-  "Firmware Update / อัปเดตเฟิร์มแวร์ (2M)",
-  "Internal Cleaning / ทำความสะอาดภายใน (2M)",
-  "Overall Condition / สภาพโดยรวม (2M)",
-  "Consumables / วัสดุสิ้นเปลือง (2M)"
+  "1. Clean Exterior & Interior / ทำความสะอาดเครื่อง",
+  "2. Roller & Paper Feed Check / ตรวจเช็คชุดดึงกระดาษ",
+  "3. Print Head & Ink/Toner Check / ตรวจเช็คหัวพิมพ์",
+  "4. Print Quality Test / ทดสอบคุณภาพการพิมพ์",
+  "5. Driver & Firmware Update / อัปเดตซอฟต์แวร์",
+  "6. Network/USB Connection / ตรวจเช็คการเชื่อมต่อ",
+  "7. Consumables Level Check / ตรวจเช็ควัสดุสิ้นเปลือง"
 ];
 
 export const INITIAL_PM_DATA: PMItem[] = [
   { 
-    id: 'PM-001', 
-    date: '2025-01-15', 
-    nextPmDate: '2025-07-14', 
-    department: 'Maintenance / ซ่อมบำรุง', 
+    id: 'PM-2568-001', 
+    date: '2025-01-15T10:00:00.000Z', 
+    nextPmDate: '2025-07-15T10:00:00.000Z', 
+    department: 'IT / ไอที', 
     device: 'Computer', 
-    personnel: 'User 1', 
+    personnel: 'Admin System', 
+    technician: 'Staff IT 01',
     status: 'Completed', 
-    deviceStatus: 'Ready / ใช้งานได้ปกติ (In Use / กำลังใช้งาน)',
-    activity: 'Hardware Check / ตรวจสอบฮาร์ดแวร์ (6M) | OS Update / ระบบปฏิบัติการ (6M)', 
-    computerName: 'MT-PC-01', 
-    computerUser: 'Administrator', 
-    password: '', 
-    serverPassword: '', 
-    antivirus: '' 
-  },
-  { 
-    id: 'PRT-001', 
-    date: '2025-02-15', 
-    nextPmDate: '2025-04-16', 
-    department: 'Accounting / บัญชี', 
-    device: 'Printer', 
-    personnel: 'Accounting Staff', 
-    status: 'Pending', 
-    deviceStatus: 'Ready / ใช้งานได้ปกติ (Standby / ไม่ได้ใช้งาน)',
-    activity: '', 
-    computerName: 'ACC-PRT-01', 
-    computerUser: 'Administrator', 
-    password: '', 
-    serverPassword: '', 
-    antivirus: '' 
-  },
+    activity: COMPUTER_STANDARD_ACTIVITIES.slice(0, 5).join(' | '),
+    computerName: 'IT-SRV-01', 
+    computerUser: 'administrator', 
+    password: 'securepass123', 
+    antivirus: 'Kaspersky Endpoint',
+    assetName: 'Core Server v1',
+    modelSpec: 'Dell PowerEdge T440',
+    location: 'Server Room'
+  }
 ];

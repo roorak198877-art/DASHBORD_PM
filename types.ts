@@ -1,30 +1,30 @@
 
 export interface PMItem {
   // A-O (Indices 0-14)
-  id: string;               // A: ID
-  date: string;             // B: Last PM Date
+  id: string;               // A: ID (Required)
+  date: string;             // B: Date (Required)
   nextPmDate?: string;      // C: Next PM Date
-  department: string;       // D: Department
-  device: 'Computer' | 'Printer'; // E: Category
-  personnel: string;        // F: Personnel/User
-  status: 'Completed' | 'In Progress' | 'Pending'; // G: Status
-  activity?: string;        // H: PM Activities (Checklist)
+  department: string;       // D: Department (Required)
+  device: 'Computer' | 'Printer'; // E: Device Type (Required)
+  personnel?: string;       // F: Personnel
+  status?: 'Completed' | 'In Progress' | 'Pending'; // G: Status
+  activity?: string;        // H: Activities
   computerName?: string;    // I: Hostname
-  computerUser?: string;    // J: Login Account
-  password?: string;        // K: Machine Password
+  computerUser?: string;    // J: Username
+  password?: string;        // K: Password
   serverPassword?: string;  // L: Server Password
-  antivirus?: string;       // M: Antivirus Info
-  imageUrl?: string;        // N: Image URL (Base64 or Cloud Link)
-  technician?: string;      // O: Technician Name
-  
+  antivirus?: string;       // M: Antivirus
+  imageUrl?: string;        // N: Image
+  technician?: string;      // O: Technician
+
   // P-V (Indices 15-21)
   startDate?: string;       // P: Start Date
-  warrantyExpiry?: string;  // Q: Warranty Expiration
-  spareField?: string;      // R: Notes / Spare Parts
+  warrantyExpiry?: string;  // Q: Warranty
+  notes?: string;           // R: Notes
   assetName?: string;       // S: Asset Name
-  model?: string;           // T: Spec / Model
-  serialNumber?: string;    // U: Serial Number
-  location?: string;        // V: Physical Location
+  modelSpec?: string;       // T: Spec
+  serialNumber?: string;    // U: Serial
+  location?: string;        // V: Location
 
   // UI Only
   deviceStatus?: string; 
@@ -38,11 +38,4 @@ export interface DeptWorkload {
 export interface DailyTrend {
   date: string;
   count: number;
-}
-
-export interface MonthlySummary {
-  month: string;
-  count: number;
-  completion: number;
-  note: string;
 }
