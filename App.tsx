@@ -67,12 +67,31 @@ const calculateNextPM = (currentDate: string, device: 'Computer' | 'Printer'): s
 
 const SpinningGears = () => (
   <div className="fixed inset-0 pointer-events-none overflow-hidden z-0 opacity-10">
+    {/* Gear 1: Top Right */}
     <motion.div 
       animate={{ rotate: 360, y: [0, -10, 0] }} 
       transition={{ rotate: { repeat: Infinity, duration: 20, ease: "linear" }, y: { repeat: Infinity, duration: 4, ease: "easeInOut" } }}
       className="absolute -top-10 -right-10 text-emerald-900"
     >
       <Settings size={200} strokeWidth={1} />
+    </motion.div>
+
+    {/* Gear 2: Bottom Left (New) */}
+    <motion.div 
+      animate={{ rotate: -360, scale: [1, 1.1, 1] }} 
+      transition={{ rotate: { repeat: Infinity, duration: 25, ease: "linear" }, scale: { repeat: Infinity, duration: 6, ease: "easeInOut" } }}
+      className="absolute -bottom-20 -left-20 text-emerald-800"
+    >
+      <Settings size={280} strokeWidth={0.5} />
+    </motion.div>
+
+    {/* Gear 3: Center Bottom (New) */}
+    <motion.div 
+      animate={{ rotate: 360, x: [0, 15, 0] }} 
+      transition={{ rotate: { repeat: Infinity, duration: 18, ease: "linear" }, x: { repeat: Infinity, duration: 5, ease: "easeInOut" } }}
+      className="absolute bottom-40 right-1/4 text-emerald-700 opacity-50"
+    >
+      <Settings size={120} strokeWidth={1} />
     </motion.div>
   </div>
 );
