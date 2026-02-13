@@ -4,9 +4,9 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   server: {
     fs: {
-      // Disable strict mode to allow Vite to access files outside of the root and handle paths with special characters
+      // ปิดโหมด strict เพื่ออนุญาตให้ Vite เข้าถึงไฟล์นอก root และจัดการ Path ที่มีอักขระพิเศษ
       strict: false,
-      // Allowed file system paths for the server
+      // เพิ่ม Path ของคุณเข้าไปในรายการที่อนุญาต (Allowed Paths)
       allow: [
         '..',
         './',
@@ -19,6 +19,6 @@ export default defineConfig({
       overlay: true
     }
   },
-  // Set root to the current working directory
+  // กำหนด Root Directory ให้ตรงกับ Directory ปัจจุบันของโปรเจกต์
   root: process.cwd()
 });
